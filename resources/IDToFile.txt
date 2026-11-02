@@ -1,0 +1,2 @@
+16300.svg		MakeCropMarksAI_Light@2x.svg
+16301.svg		MakeCropMarksAI_Dark@2x.svg
