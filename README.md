@@ -9,6 +9,10 @@
 > **High-performance native C++ prepress plugin (`.aip`) for Adobe Illustrator (CC 2020 – 2026+ x64).**  
 > Generates precision vector crop marks, fold marks, bleed offsets, and knockout underlays in sub-millisecond time (<1 ms) directly in Illustrator process memory.
 
+<p align="center">
+  <img src="images/CropMarksAI_01.png" alt="CropMarksAI Main Panel and Perimeter Marks" width="800">
+</p>
+
 ---
 
 [English](#english) • [Русский](#русский)
@@ -76,7 +80,11 @@ To uninstall, simply run **`Uninstall_Plugin.bat`** as Administrator.
 
 ---
 
-### ⌨️ Default Hotkeys
+### ⌨️ Default Hotkeys & Preferences
+
+<p align="center">
+  <img src="images/CropMarksAI_02.png" alt="CropMarksAI Settings and Hotkeys Dialog" width="480">
+</p>
 
 | Shortcut | Action | Description |
 |---|---|---|
