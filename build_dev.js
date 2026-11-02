@@ -71,6 +71,7 @@ function copyDir(src, dst) {
     }
 }
 copyDir(path.join(ROOT_DIR, "resources"), path.join(STAGING_DIR, "resources"));
+copyDir(path.join(ROOT_DIR, "images"), path.join(STAGING_DIR, "images"));
 
 // 4. Create ZIP archive in Build_DEV
 fs.mkdirSync(BUILD_DEV_DIR, { recursive: true });

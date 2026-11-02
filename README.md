@@ -4,7 +4,7 @@
 [![Language](https://img.shields.io/badge/Language-C%2B%2B17-00599C?style=for-the-badge&logo=c%2B%2B&logoColor=white)](https://isocpp.org/)
 [![Platform](https://img.shields.io/badge/Platform-Windows%20x64-blue?style=for-the-badge&logo=windows&logoColor=white)](https://microsoft.com)
 [![Version](https://img.shields.io/badge/Version-v1.07-success?style=for-the-badge)](https://github.com/SaidAuita/CropMarksAI/releases)
-[![License](https://img.shields.io/badge/License-Proprietary%20%2F%20Freeware-informational?style=for-the-badge)](LICENSE)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](LICENSE)
 
 > **High-performance native C++ prepress plugin (`.aip`) for Adobe Illustrator (CC 2020 – 2026+ x64).**  
 > Generates precision vector crop marks, fold marks, bleed offsets, and knockout underlays in sub-millisecond time (<1 ms) directly in Illustrator process memory.
@@ -15,12 +15,19 @@
 
 ---
 
-[English](#english) • [Русский](#русский)
+[English](#english) • [Русский](#-русский)
 
 ---
 
 <a name="english"></a>
 ## English
+
+> [!TIP]
+> ### 📥 Download Latest Release
+> **[CropMarksAI_Plugin_v1.07.zip](https://github.com/SaidAuita/CropMarksAI/releases/download/v1.07/CropMarksAI_Plugin_v1.07.zip)** *(Direct ZIP package with one-click installer)*  
+> Full release notes & assets: **[Release v1.07](https://github.com/SaidAuita/CropMarksAI/releases/tag/v1.07)**
+
+---
 
 ### ⚡ Key Features
 
@@ -107,29 +114,75 @@ To uninstall, simply run **`Uninstall_Plugin.bat`** as Administrator.
 
 ---
 
-<a name="русский"></a>
-## Русский
+### 🛠️ Other Projects
+
+**[Clipboard Paste Native Plugin](https://github.com/SaidAuita/AI-Clipboard-Paste)**
+* Ultra-fast in-memory vector duplication for Adobe Illustrator without OS clipboard overhead. Hotkeys F5–F8.
+
+**[AI Dimension](https://github.com/SaidAuita/AI-Dimension)**
+* Automatic dimensioning, gap measuring, and technical callout generator for Adobe Illustrator.
+
+**[ID Dimension](https://github.com/SaidAuita/ID-Dimension)**
+* Technical dimensioning and drafting annotation tool for Adobe InDesign (includes both CEP panel and ScriptUI palette).
+
+**[ComfyUI Photoshop Plugin (PH-CU-S)](https://github.com/SaidAuita/ComfyUI_PH-CU-S)**
+* A powerful Photoshop plugin powered by ComfyUI, providing direct integration with local generative models without any clouds, subscriptions, or recurring fees.
+
+### 💎 QR Code with Custom Shape Logo
+
+<table>
+  <tr>
+    <td align="center" width="50%">
+      <a href="https://ph-cu-s.com/ai-code-pro">
+        <img src="images/ai_code_pro.png" width="130" alt="AI Code PRO - Custom Shape Logo QR Code" /><br/>
+        <b>AI Code PRO</b>
+      </a><br/>
+      <sub>Vector Barcodes (18 Standards) & Designer QR Codes for <b>Adobe Illustrator</b></sub><br/><br/>
+      <a href="https://ph-cu-s.com/ai-code-pro"><img src="https://img.shields.io/badge/PRO-Illustrator%20Extension-orange.svg" alt="AI Code PRO" /></a>
+    </td>
+    <td align="center" width="50%">
+      <a href="https://ph-cu-s.com/id-code-pro">
+        <img src="images/id_code_pro.png" width="130" alt="ID Code PRO - Custom Shape Logo QR Code" /><br/>
+        <b>ID Code PRO</b>
+      </a><br/>
+      <sub>Vector Barcodes (18 Standards) & Designer QR Codes for <b>Adobe InDesign</b></sub><br/><br/>
+      <a href="https://ph-cu-s.com/id-code-pro"><img src="https://img.shields.io/badge/PRO-InDesign%20Extension-purple.svg" alt="ID Code PRO" /></a>
+    </td>
+  </tr>
+</table>
+
+---
+
+<a name="-русский"></a>
+## 🇷🇺 Русский
+
+> [!TIP]
+> ### 📥 Скачать последнюю версию плагина
+> **[CropMarksAI_Plugin_v1.07.zip](https://github.com/SaidAuita/CropMarksAI/releases/download/v1.07/CropMarksAI_Plugin_v1.07.zip)** *(Прямая загрузка архива с автоматическим установщиком)*  
+> Страница релиза и список изменений: **[Релиз v1.07](https://github.com/SaidAuita/CropMarksAI/releases/tag/v1.07)**
+
+---
 
 ### ⚡ Преимущества и возможности
 
-1. **Мгновенная работа (< 1 мс)**:
-   - Прямой расчёт геометрии и создание векторных путей внутри адресного пространства `Illustrator.exe` через нативный C++ SDK (`sAIArt`, `sAIPath`, `sAIPathStyle`).
-   - В десятки раз быстрее традиционных ExtendScript / JSX скриптов на плотных спусках полос и макетах с тысячами элементов.
+1. **Мгновенная скорость (< 1 мс)**:
+   - Прямой расчёт геометрии и создание векторных путей внутри адресного пространства процесса `Illustrator.exe` через нативный C++ SDK (`sAIArt`, `sAIPath`, `sAIPathStyle`).
+   - В десятки раз быстрее традиционных ExtendScript / JSX скриптов на плотных спусках полос и макетах с сотнями объектов.
 
 2. **12 независимых направлений меток реза**:
    - Угловые метки: верхний левый (`TL`), верхний правый (`TR`), нижний левый (`BL`), нижний правый (`BR`).
    - Боковые метки: левый верх (`LT`), левый низ (`LB`), правый верх (`RT`), правый низ (`RB`).
-   - Центральные / биговочные метки: верх центр (`TC`), низ центр (`BC`), лево центр (`LC`), право центр (`RC`).
+   - Центральные и биговочные метки: верх центр (`TC`), низ центр (`BC`), лево центр (`LC`), право центр (`RC`).
    - Быстрые кнопки выбора: `All` (все), `Corners` (только угловые), `Clear` (снять все).
 
 3. **Полиграфическая точность и допечатные стандарты**:
-   - **Цвет Registration**: Меткам автоматически назначается 100% краска приводки Registration (`sAICustomColor->GetCurrentRegistrationColor`), выводящаяся на всех сепарациях.
-   - **Белая маскирующая подложка (`+1 pt`)**: Дополнительная белая линия под меткой для идеальной читаемости на тёмных и насыщенных плашках.
+   - **Цвет Registration**: Меткам автоматически назначается 100% краска приводки Registration (`sAICustomColor->GetCurrentRegistrationColor`), выводящаяся на всех сепарациях печатных форм.
+   - **Белая маскирующая подложка (`+1 pt`)**: Дополнительная белая линия под цветной меткой для четкой читаемости на тёмных фонах и насыщенных плашках.
    - **Режим "Only perimeter"**: Построение меток исключительно по внешнему габариту выделенного блока без лишних внутренних засечек между смежными карточками.
    - **Дедупликация линий**: Исключение наложения повторяющихся линий с точностью до `0.002 pt`.
    - **Обработка масок и направляющих**: Автоматическое определение обтравочных масок (`Clipping Mask`) и расчет меток по контуру видимого макета с полным игнорированием служебных направляющих.
    - **Send to Back**: Автоматическое опускание всех созданных меток в самый низ стопки слоев макета (`kPlaceInsideOnBottom`).
-   - **Отмена в один шаг (Ctrl+Z)**: Полная интеграция в историю документа Illustrator.
+   - **Отмена в один шаг (Ctrl+Z)**: Полная интеграция в историю документа Illustrator (`sAIUndo->SetUndoTextUS`).
 
 4. **Адаптивный интерфейс и HiDPI / 4K калибровка**:
    - Точные нативные пропорции (1:1 с нативными палитрами Stroke, Paragraph, Character).
@@ -145,29 +198,83 @@ To uninstall, simply run **`Uninstall_Plugin.bat`** as Administrator.
    - **F4**: Открытие / скрытие палитры плагина.
    - **Shift + F4**: Мгновенный Quick Apply по активному пресету без вызова диалога.
    - **Enter**: Запуск генерации меток из числовых полей; сохранение пресета из поля названия.
-   - **Tab** / **Shift + Tab**: Удобная циклическая навигация по полям и кнопкам.
+   - **Tab** / **Shift + Tab**: Удобная циклическая навигация по полям и кнопкам с автовыделением текста.
    - Опция `Disable plugin` в настройках (`⚙`) для временного отключения хука.
 
 ---
 
 ### 📦 Установка
 
+#### Автоматическая установка (Рекомендуется):
 1. Закройте Adobe Illustrator.
 2. Запустите **`Install_Plugin.bat`** от имени Администратора.
-3. Инсталлятор найдет установленные версии Illustrator (`CC 2020` .. `2026+`) и скопирует плагин `CropMarksAI.aip` в папки `Plug-ins\`.
+3. Инсталлятор автоматически найдет установленные версии Illustrator (`CC 2020` .. `2026+`) и скопирует плагин `CropMarksAI.aip` в папки `Plug-ins\`.
 4. Запустите Illustrator. Палитра доступна через меню **`Window` ➔ `CropMarksAI`** или по клавише **F4**.
 
+#### Ручная установка:
+Скопируйте `CropMarksAI.aip` в системную папку плагинов:
+```
+C:\Program Files\Adobe\Adobe Illustrator [Версия]\Plug-ins\
+```
+
+Для удаления запустите **`Uninstall_Plugin.bat`** от имени Администратора.
+
 ---
 
-## 🔗 Ссылки и ресурсы
+### ⌨️ Горячие клавиши по умолчанию
 
-- **Репозиторий проекта**: [github.com/SaidAuita/CropMarksAI](https://github.com/SaidAuita/CropMarksAI)
-- **Каталог скриптов и плагинов**: [ph-cu-s.com/tools](https://ph-cu-s.com/tools)
-- **Автор**: SaidAuita
+| Хоткей | Действие | Описание |
+|---|---|---|
+| **F4** | Открыть / свернуть панель | Открывает или сворачивает докируемую палитру CropMarksAI |
+| **Shift + F4** | Быстрое применение | Мгновенно расставляет метки по активному пресету к выделению |
+| **Enter** *(в поле)* | Создать / Сохранить | В числовых полях запускает расстановку; в поле названия сохраняет пресет |
+| **Tab** / **Shift+Tab** | Навигация | Перемещение фокуса ввода между полями и кнопками |
+| **Ctrl + Z** | Отмена | Полная отмена действия в один шаг истории |
 
 ---
 
-### 📄 License
+### 🛠️ Другие проекты (My Projects)
 
-Copyright © 2026 SaidAuita. All rights reserved.
-Distributed as freeware for prepress designers and print production specialists.
+**[Clipboard Paste Native Plugin](https://github.com/SaidAuita/AI-Clipboard-Paste)**
+* Сверхбыстрое дублирование векторных объектов в памяти Illustrator ядра SweetPea без задействования системного буфера Windows. Хоткеи F5–F8.
+
+**[AI Dimension](https://github.com/SaidAuita/AI-Dimension)**
+* Автоматическая простановка технических размеров, зазоров и выносных линий для Adobe Illustrator.
+
+**[ID Dimension](https://github.com/SaidAuita/ID-Dimension)**
+* Инструмент простановки чертежных размеров и аннотаций для Adobe InDesign (включает панель CEP и скрипт ScriptUI).
+
+**[ComfyUI Photoshop Plugin (PH-CU-S)](https://github.com/SaidAuita/ComfyUI_PH-CU-S)**
+* Мощный плагин для Photoshop на базе ComfyUI, обеспечивающий прямую интеграцию с локальными генеративными моделями без подписок и облаков.
+
+### 💎 QR код с логотипом произвольной формы
+
+<table>
+  <tr>
+    <td align="center" width="50%">
+      <a href="https://ph-cu-s.com/ru/ai-code-pro">
+        <img src="images/ai_code_pro_ru.png" width="130" alt="AI Code PRO - QR код с логотипом произвольной формы" /><br/>
+        <b>AI Code PRO</b>
+      </a><br/>
+      <sub>Генератор векторных штрихкодов (18 стандартов) и дизайнерских QR-кодов для <b>Adobe Illustrator</b></sub><br/><br/>
+      <a href="https://ph-cu-s.com/ru/ai-code-pro"><img src="https://img.shields.io/badge/PRO-Расширение%20Illustrator-orange.svg" alt="AI Code PRO" /></a>
+    </td>
+    <td align="center" width="50%">
+      <a href="https://ph-cu-s.com/ru/id-code-pro">
+        <img src="images/id_code_pro_ru.png" width="130" alt="ID Code PRO - QR код с логотипом произвольной формы" /><br/>
+        <b>ID Code PRO</b>
+      </a><br/>
+      <sub>Генератор векторных штрихкодов (18 стандартов) и дизайнерских QR-кодов для <b>Adobe InDesign</b></sub><br/><br/>
+      <a href="https://ph-cu-s.com/ru/id-code-pro"><img src="https://img.shields.io/badge/PRO-Расширение%20InDesign-purple.svg" alt="ID Code PRO" /></a>
+    </td>
+  </tr>
+</table>
+
+---
+
+## 📄 License & Author
+
+* **Author:** Said Auita ([GitHub: @SaidAuita](https://github.com/SaidAuita))
+* **Project Repository:** [github.com/SaidAuita/CropMarksAI](https://github.com/SaidAuita/CropMarksAI)
+* **Prepress Automation Hub:** [ph-cu-s.com/tools](https://ph-cu-s.com/tools)
+* **License:** [MIT License](LICENSE)
