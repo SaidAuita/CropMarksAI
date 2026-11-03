@@ -3,7 +3,7 @@
 [![Adobe Illustrator](https://img.shields.io/badge/Adobe%20Illustrator-CC%202020%20--%202026%2B-FF9A00?style=for-the-badge&logo=adobeillustrator&logoColor=white)](https://www.adobe.com/products/illustrator.html)
 [![Language](https://img.shields.io/badge/Language-C%2B%2B17-00599C?style=for-the-badge&logo=c%2B%2B&logoColor=white)](https://isocpp.org/)
 [![Platform](https://img.shields.io/badge/Platform-Windows%20x64-blue?style=for-the-badge&logo=windows&logoColor=white)](https://microsoft.com)
-[![Version](https://img.shields.io/badge/Version-v1.08-success?style=for-the-badge)](https://github.com/SaidAuita/CropMarksAI/releases)
+[![Version](https://img.shields.io/badge/Version-v1.11-success?style=for-the-badge)](https://github.com/SaidAuita/CropMarksAI/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](LICENSE)
 
 > **High-performance native C++ prepress plugin (`.aip`) for Adobe Illustrator (CC 2020 – 2026+ x64).**  
@@ -24,8 +24,8 @@
 
 > [!TIP]
 > ### 📥 Download Latest Release
-> **[CropMarksAI_Plugin_v1.08.zip](https://github.com/SaidAuita/CropMarksAI/releases/download/v1.08/CropMarksAI_Plugin_v1.08.zip)** *(Direct ZIP package with one-click installer)*  
-> Full release notes & assets: **[Release v1.08](https://github.com/SaidAuita/CropMarksAI/releases/tag/v1.08)**
+> **[CropMarksAI_Plugin_v1.11.zip](https://github.com/SaidAuita/CropMarksAI/releases/download/v1.11/CropMarksAI_Plugin_v1.11.zip)** *(Direct ZIP package with one-click installer)*  
+> Full release notes & assets: **[Release v1.11](https://github.com/SaidAuita/CropMarksAI/releases/tag/v1.11)**
 
 ---
 
@@ -44,10 +44,11 @@
 3. **Prepress Precision & Print Standards**:
    - **Registration Color**: Strokes are assigned true 100% Registration color (`sAICustomColor->GetCurrentRegistrationColor`), rendering on all separation plates.
    - **White Knockout Contour Underlay (`+1 pt`)**: Automatic white background stroke placed underneath the registration line for maximum visibility on rich black and dark backgrounds.
+   - **Spatial Auto-Clustering & Multi-Artboard Support**: Automatically detects imposition grids across multiple artboards simultaneously (e.g. 24×5 cards). Each artboard gets clean perimeter marks in its own dedicated group without cross-artboard interference.
    - **Only Perimeter Mode (No Inner Marks)**: Creates marks strictly along the outer bounding perimeter of grouped layouts (cards, stickers, impositions), preventing unwanted internal cut lines.
    - **Line Deduplication**: Positional cache eliminates duplicate overlapping lines with a precision tolerance of `0.002 pt`.
    - **Clipping Mask & Guide Awareness**: Accurately detects clipping masks (`kArtIsClipMask`) to bound crop marks to the visible artwork, completely ignoring non-printing guides.
-   - **Send to Back**: Automatically reorders generated marks to the very bottom of the artwork stack (`kPlaceInsideOnBottom`).
+   - **Guaranteed Send to Back**: All marks are gathered into a single `"Crop Marks"` group positioned strictly below all artwork elements.
    - **One-Step Undo**: Fully integrated into Illustrator's native history stack (`sAIUndo->SetUndoTextUS`).
 
 4. **Adaptive UI & HiDPI / 4K Calibration**:
@@ -158,8 +159,8 @@ To uninstall, simply run **`Uninstall_Plugin.bat`** as Administrator.
 
 > [!TIP]
 > ### 📥 Скачать последнюю версию плагина
-> **[CropMarksAI_Plugin_v1.08.zip](https://github.com/SaidAuita/CropMarksAI/releases/download/v1.08/CropMarksAI_Plugin_v1.08.zip)** *(Прямая загрузка архива с автоматическим установщиком)*  
-> Страница релиза и список изменений: **[Релиз v1.08](https://github.com/SaidAuita/CropMarksAI/releases/tag/v1.08)**
+> **[CropMarksAI_Plugin_v1.11.zip](https://github.com/SaidAuita/CropMarksAI/releases/download/v1.11/CropMarksAI_Plugin_v1.11.zip)** *(Прямая загрузка архива с автоматическим установщиком)*  
+> Страница релиза и список изменений: **[Релиз v1.11](https://github.com/SaidAuita/CropMarksAI/releases/tag/v1.11)**
 
 ---
 
@@ -178,10 +179,11 @@ To uninstall, simply run **`Uninstall_Plugin.bat`** as Administrator.
 3. **Полиграфическая точность и допечатные стандарты**:
    - **Цвет Registration**: Меткам автоматически назначается 100% краска приводки Registration (`sAICustomColor->GetCurrentRegistrationColor`), выводящаяся на всех сепарациях печатных форм.
    - **Белая маскирующая подложка (`+1 pt`)**: Дополнительная белая линия под цветной меткой для четкой читаемости на тёмных фонах и насыщенных плашках.
+   - **Пространственная кластеризация и мульти-артбордные спуски**: Автоматическое определение спусков и распределение по артбордам (например, 24×5 карточек на 5 артбордах одновременно). Каждый артборд получает чистые метки в своей отдельной группе без перетягивания линий через пустое пространство.
    - **Режим "Only perimeter"**: Построение меток исключительно по внешнему габариту выделенного блока без лишних внутренних засечек между смежными карточками.
    - **Дедупликация линий**: Исключение наложения повторяющихся линий с точностью до `0.002 pt`.
    - **Обработка масок и направляющих**: Автоматическое определение обтравочных масок (`Clipping Mask`) и расчет меток по контуру видимого макета с полным игнорированием служебных направляющих.
-   - **Send to Back**: Автоматическое опускание всех созданных меток в самый низ стопки слоев макета (`kPlaceInsideOnBottom`).
+   - **Гарантированное опускание под макет (Send to Back)**: Все созданные метки объединяются в единую группу `"Crop Marks"` и опускаются строго под все элементы макета.
    - **Отмена в один шаг (Ctrl+Z)**: Полная интеграция в историю документа Illustrator (`sAIUndo->SetUndoTextUS`).
 
 4. **Адаптивный интерфейс и HiDPI / 4K калибровка**:

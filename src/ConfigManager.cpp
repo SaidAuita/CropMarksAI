@@ -1,8 +1,10 @@
 #include "ConfigManager.h"
+#include "Suites.h"
 #include <shlobj.h>
 #include <vector>
 #include <sstream>
 #include <fstream>
+#include <algorithm>
 
 #pragma comment(lib, "shell32.lib")
 
@@ -538,8 +540,16 @@ static LRESULT CALLBACK SettingsDlgProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
     return DefWindowProcA(hwnd, msg, wParam, lParam);
 }
 
-static float GetWindowDpiScale(HWND hwnd) {
-    float scale = 1.0f;
+static float GetDialogScale(HWND hwnd) {
+    float aiScale = 1.0f;
+    if (sAIUser && sAIUser->GetAppScaleFactor) {
+        AIReal s = sAIUser->GetAppScaleFactor();
+        if (s >= 0.5f && s <= 5.0f) {
+            aiScale = (float)s;
+        }
+    }
+
+    float winDpiScale = 1.0f;
     if (hwnd) {
         HMODULE hUser32 = GetModuleHandleW(L"user32.dll");
         if (hUser32) {
@@ -547,24 +557,26 @@ static float GetWindowDpiScale(HWND hwnd) {
             GetDpiForWindowProc pGetDpi = (GetDpiForWindowProc)GetProcAddress(hUser32, "GetDpiForWindow");
             if (pGetDpi) {
                 UINT dpi = pGetDpi(hwnd);
-                if (dpi > 0) scale = (float)dpi / 96.0f;
+                if (dpi > 0) winDpiScale = (float)dpi / 96.0f;
             }
         }
-        if (scale <= 1.0f) {
+        if (winDpiScale <= 0.1f) {
             HDC hdc = GetDC(hwnd);
             if (hdc) {
                 int dpi = GetDeviceCaps(hdc, LOGPIXELSY);
                 ReleaseDC(hwnd, hdc);
-                if (dpi > 0) scale = (float)dpi / 96.0f;
+                if (dpi > 0) winDpiScale = (float)dpi / 96.0f;
             }
         }
     }
-    if (scale < 0.75f) scale = 0.75f;
-    if (scale > 4.0f)  scale = 4.0f;
-    return scale;
+
+    float finalScale = (std::max)(aiScale, winDpiScale);
+    if (finalScale < 0.75f) finalScale = 0.75f;
+    if (finalScale > 4.0f)  finalScale = 4.0f;
+    return finalScale;
 }
 
-bool ConfigManager::ShowSettingsDialog(HWND parentHwnd) {
+bool ConfigManager::ShowSettingsDialog(HWND parentHwnd, float currentScale) {
     m_dialogActive = true;
 
     g_dlgData.openUiHk = m_openUiHotkey;
@@ -572,7 +584,10 @@ bool ConfigManager::ShowSettingsDialog(HWND parentHwnd) {
     g_dlgData.disabled = m_disabled;
     g_dlgData.saved = false;
 
-    float scale = GetWindowDpiScale(parentHwnd);
+    float scale = currentScale;
+    if (scale < 0.75f || scale > 4.0f) {
+        scale = GetDialogScale(parentHwnd);
+    }
     auto S = [scale](int v) -> int { return (int)(v * scale + 0.5f); };
 
     HINSTANCE hInst = GetModuleHandle(NULL);
@@ -588,8 +603,8 @@ bool ConfigManager::ShowSettingsDialog(HWND parentHwnd) {
         RegisterClassExA(&wc);
     }
 
-    int clientW = S(420);
-    int clientH = S(278);
+    int clientW = S(340);
+    int clientH = S(226);
     RECT rc = { 0, 0, clientW, clientH };
     DWORD dwStyle = WS_POPUP | WS_CAPTION | WS_SYSMENU | WS_VISIBLE;
     DWORD dwExStyle = WS_EX_DLGMODALFRAME | WS_EX_TOPMOST;
@@ -622,7 +637,7 @@ bool ConfigManager::ShowSettingsDialog(HWND parentHwnd) {
         DeleteObject(g_hDlgFont);
         g_hDlgFont = NULL;
     }
-    int fontH = -(int)(13.0f * scale + 0.5f);
+    int fontH = -(int)(11.0f * scale + 0.5f);
     g_hDlgFont = CreateFontA(fontH, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
                              DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
                              CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE, "Segoe UI");
@@ -635,48 +650,47 @@ bool ConfigManager::ShowSettingsDialog(HWND parentHwnd) {
 
     auto makeCombo = [&](int cid, int cx, int cy, int cw) {
         HWND h = CreateWindowExA(0, "COMBOBOX", "", WS_CHILD | WS_VISIBLE | CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP,
-                                 cx, cy, cw, S(220), hDlg, (HMENU)(INT_PTR)cid, hInst, NULL);
+                                 cx, cy, cw, S(160), hDlg, (HMENU)(INT_PTR)cid, hInst, NULL);
         SendMessage(h, WM_SETFONT, (WPARAM)g_hDlgFont, TRUE);
-        SendMessageA(h, CB_SETITEMHEIGHT, (WPARAM)-1, (LPARAM)S(24));
-        SendMessageA(h, CB_SETITEMHEIGHT, (WPARAM)0,  (LPARAM)S(20));
+        SendMessageA(h, CB_SETITEMHEIGHT, (WPARAM)-1, (LPARAM)S(20));
+        SendMessageA(h, CB_SETITEMHEIGHT, (WPARAM)0,  (LPARAM)S(18));
         return h;
     };
 
     // UI Group: Hotkeys
     HWND hGrp1 = CreateWindowExA(0, "BUTTON", " Keyboard Shortcuts ", WS_CHILD | WS_VISIBLE | BS_GROUPBOX,
-                                 S(12), S(10), clientW - S(24), S(140), hDlg, NULL, hInst, NULL);
+                                 S(10), S(8), clientW - S(20), S(110), hDlg, NULL, hInst, NULL);
     SendMessage(hGrp1, WM_SETFONT, (WPARAM)g_hDlgFont, TRUE);
 
-    makeStatic("1. Open / Toggle Panel:", S(24), S(38), S(150), S(20));
-    makeCombo(IDC_MOD_OPENUI, S(180), S(35), S(110));
-    makeCombo(IDC_KEY_OPENUI, S(298), S(35), S(80));
+    makeStatic("1. Open / Toggle Panel:", S(20), S(26), S(140), S(18));
+    makeCombo(IDC_MOD_OPENUI, S(164), S(24), S(84));
+    makeCombo(IDC_KEY_OPENUI, S(252), S(24), S(68));
 
-    makeStatic("2. Quick Apply Active Preset:", S(24), S(75), S(150), S(20));
-    makeCombo(IDC_MOD_QUICK, S(180), S(72), S(110));
-    makeCombo(IDC_KEY_QUICK, S(298), S(72), S(80));
+    makeStatic("2. Quick Apply Preset:", S(20), S(50), S(140), S(18));
+    makeCombo(IDC_MOD_QUICK, S(164), S(48), S(84));
+    makeCombo(IDC_KEY_QUICK, S(252), S(48), S(68));
 
-    makeStatic("Hint: Quick Apply generates marks instantly without opening dialog.", S(24), S(112), S(360), S(20));
+    makeStatic("Hint: Quick Apply generates marks instantly without opening dialog.", S(20), S(74), S(300), S(36));
 
-    // UI Group: General
+    // UI Group: General / Status
     HWND hGrp2 = CreateWindowExA(0, "BUTTON", " Status ", WS_CHILD | WS_VISIBLE | BS_GROUPBOX,
-                                 S(12), S(158), clientW - S(24), S(60), hDlg, NULL, hInst, NULL);
+                                 S(10), S(124), clientW - S(20), S(52), hDlg, NULL, hInst, NULL);
     SendMessage(hGrp2, WM_SETFONT, (WPARAM)g_hDlgFont, TRUE);
 
-    HWND hChkDis = CreateWindowExA(0, "BUTTON", "Disable plugin (disable all hotkeys and background hooks)",
+    HWND hChkDis = CreateWindowExA(0, "BUTTON", "Disable plugin (disable all hotkeys)",
                                    WS_CHILD | WS_VISIBLE | BS_AUTOCHECKBOX | WS_TABSTOP,
-                                   S(24), S(182), clientW - S(48), S(22), hDlg, (HMENU)(INT_PTR)IDC_CHK_DISABLE, hInst, NULL);
+                                   S(20), S(144), clientW - S(40), S(20), hDlg, (HMENU)(INT_PTR)IDC_CHK_DISABLE, hInst, NULL);
     SendMessage(hChkDis, WM_SETFONT, (WPARAM)g_hDlgFont, TRUE);
 
     // Bottom Action Buttons
-    int btnW = S(88);
-    int btnH = S(28);
-    int btnY = clientH - btnH - S(16);
+    int btnH = S(24);
+    int btnY = S(188);
     HWND hBtnDef = CreateWindowExA(0, "BUTTON", "Defaults", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON | WS_TABSTOP,
-                                   S(14), btnY, S(84), btnH, hDlg, (HMENU)(INT_PTR)IDC_BTN_DEFAULTS, hInst, NULL);
+                                   S(10), btnY, S(70), btnH, hDlg, (HMENU)(INT_PTR)IDC_BTN_DEFAULTS, hInst, NULL);
     HWND hBtnOk = CreateWindowExA(0, "BUTTON", "Save", WS_CHILD | WS_VISIBLE | BS_DEFPUSHBUTTON | WS_TABSTOP,
-                                  clientW - btnW * 2 - S(16), btnY, btnW, btnH, hDlg, (HMENU)(INT_PTR)IDC_BTN_OK, hInst, NULL);
+                                  S(188), btnY, S(66), btnH, hDlg, (HMENU)(INT_PTR)IDC_BTN_OK, hInst, NULL);
     HWND hBtnCan = CreateWindowExA(0, "BUTTON", "Cancel", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON | WS_TABSTOP,
-                                  clientW - btnW - S(8), btnY, btnW, btnH, hDlg, (HMENU)(INT_PTR)IDC_BTN_CANCEL, hInst, NULL);
+                                  S(260), btnY, S(66), btnH, hDlg, (HMENU)(INT_PTR)IDC_BTN_CANCEL, hInst, NULL);
 
     SendMessage(hBtnDef, WM_SETFONT, (WPARAM)g_hDlgFont, TRUE);
     SendMessage(hBtnOk, WM_SETFONT, (WPARAM)g_hDlgFont, TRUE);

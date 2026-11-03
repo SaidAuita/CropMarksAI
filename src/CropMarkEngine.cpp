@@ -103,6 +103,47 @@ bool CropMarkEngine::HasSelectedAncestor(AIArtHandle art, const std::vector<AIAr
     return false;
 }
 
+bool CropMarkEngine::IsCropMarksGroup(AIArtHandle art) {
+    if (!art || !sAIArt) return false;
+    short type = 0;
+    if (sAIArt->GetArtType(art, &type) != kNoErr) return false;
+    if (type != kGroupArt) return false;
+    ai::UnicodeString name;
+    AIBoolean isDefaultName = false;
+    if (sAIArt->GetArtName(art, name, &isDefaultName) == kNoErr) {
+        std::string sName = name.as_Platform();
+        if (sName == "Crop Marks") return true;
+    }
+    return false;
+}
+
+void CropMarkEngine::RemoveExistingCropMarks(AIArtHandle art) {
+    if (!art || !sAIArt) return;
+    short type = 0;
+    if (sAIArt->GetArtType(art, &type) != kNoErr) return;
+
+    if (type == kGroupArt) {
+        AIArtHandle child = nullptr;
+        sAIArt->GetArtFirstChild(art, &child);
+        while (child) {
+            AIArtHandle next = nullptr;
+            sAIArt->GetArtSibling(child, &next);
+            if (IsCropMarksGroup(child)) {
+                sAIArt->DisposeArt(child);
+            } else {
+                RemoveExistingCropMarks(child);
+            }
+            child = next;
+        }
+    }
+
+    // Also check immediate sibling below art (e.g. from previous kGroupMarksOnly run)
+    AIArtHandle sibling = nullptr;
+    if (sAIArt->GetArtSibling(art, &sibling) == kNoErr && sibling && IsCropMarksGroup(sibling)) {
+        sAIArt->DisposeArt(sibling);
+    }
+}
+
 AIRealRect CropMarkEngine::GetObjectBounds(AIArtHandle art, int boundsMode) {
     AIRealRect rc = { 0, 0, 0, 0 };
     if (!sAIArt || !art) return rc;
@@ -113,23 +154,42 @@ AIRealRect CropMarkEngine::GetObjectBounds(AIArtHandle art, int boundsMode) {
         art = clipPath;
     }
 
-    AIErr err = kBadParameterErr;
+    AIRealRect visBounds = { 0, 0, 0, 0 };
+    AIErr visErr = sAIArt->GetArtBounds(art, &visBounds);
+    if (visBounds.left > visBounds.right) std::swap(visBounds.left, visBounds.right);
+    if (visBounds.bottom > visBounds.top) std::swap(visBounds.bottom, visBounds.top);
+
     if (boundsMode == kBoundsVisible) {
-        // Visible bounds (includes stroke)
-        err = sAIArt->GetArtBounds(art, &rc);
+        rc = visBounds;
     } else {
         // Geometric bounds (control points / bezier outlines without stroke)
-        err = sAIArt->GetArtTransformBounds(art, nullptr, kNoStrokeBounds | kExcludeGuideBounds, &rc);
-        if (err != kNoErr || (rc.left == 0 && rc.right == 0 && rc.top == 0 && rc.bottom == 0)) {
-            err = sAIArt->GetArtBounds(art, &rc);
+        AIRealRect geomBounds = { 0, 0, 0, 0 };
+        AIErr geomErr = sAIArt->GetArtTransformBounds(art, nullptr, kNoStrokeBounds | kExcludeGuideBounds, &geomBounds);
+        if (geomBounds.left > geomBounds.right) std::swap(geomBounds.left, geomBounds.right);
+        if (geomBounds.bottom > geomBounds.top) std::swap(geomBounds.bottom, geomBounds.top);
+
+        double visCx = (visBounds.left + visBounds.right) * 0.5;
+        double visCy = (visBounds.top + visBounds.bottom) * 0.5;
+        double geomCx = (geomBounds.left + geomBounds.right) * 0.5;
+        double geomCy = (geomBounds.top + geomBounds.bottom) * 0.5;
+
+        // If GetArtTransformBounds with nullptr failed or returned local coordinates (e.g. from artboard 1
+        // while the object is placed on artboard 2), fall back to world bounds from GetArtBounds!
+        if (geomErr != kNoErr ||
+            (geomBounds.left == 0 && geomBounds.right == 0 && geomBounds.top == 0 && geomBounds.bottom == 0) ||
+            std::abs(visCx - geomCx) > 5.0 ||
+            std::abs(visCy - geomCy) > 5.0) {
+            rc = visBounds;
+        } else {
+            rc = geomBounds;
         }
     }
 
     if (rc.left > rc.right) std::swap(rc.left, rc.right);
     if (rc.bottom > rc.top) std::swap(rc.bottom, rc.top);
 
-    PluginLog("[GetObjectBounds] art=%p mode=%d -> L=%.2f, T=%.2f, R=%.2f, B=%.2f (err=%d)",
-              art, boundsMode, rc.left, rc.top, rc.right, rc.bottom, err);
+    PluginLog("[GetObjectBounds] art=%p mode=%d -> L=%.2f, T=%.2f, R=%.2f, B=%.2f",
+              art, boundsMode, rc.left, rc.top, rc.right, rc.bottom);
     return rc;
 }
 
@@ -231,6 +291,183 @@ static AIArtHandle CreateLineArt(AIArtHandle container, double x1, double y1, do
     return pathArt;
 }
 
+template <typename Func>
+static void GenerateMarksForRect(
+    const AIRealRect& rc,
+    const CropMarkParams& params,
+    bool canDoTop,
+    bool canDoBottom,
+    bool canDoLeft,
+    bool canDoRight,
+    double lVer, double lHor,
+    double oVer, double oHor,
+    double bVer, double bHor,
+    Func addMark
+) {
+    const double left = rc.left;
+    const double top = rc.top;
+    const double right = rc.right;
+    const double bottom = rc.bottom;
+
+    // TOP BLOCK (vertical lines)
+    if (canDoTop) {
+        if (params.dirs.topLeft) {
+            double x = left + bHor;
+            double y1 = top + oVer;
+            double y2 = y1 + lVer;
+            addMark(x, y1, x, y2);
+        }
+        if (params.dirs.topCenter) {
+            double x = (left + right) * 0.5;
+            double y1 = top + oVer;
+            double y2 = y1 + lVer;
+            addMark(x, y1, x, y2);
+        }
+        if (params.dirs.topRight) {
+            double x = right - bHor;
+            double y1 = top + oVer;
+            double y2 = y1 + lVer;
+            addMark(x, y1, x, y2);
+        }
+    }
+
+    // BOTTOM BLOCK (vertical lines)
+    if (canDoBottom) {
+        if (params.dirs.bottomLeft) {
+            double x = left + bHor;
+            double y1 = bottom - oVer;
+            double y2 = y1 - lVer;
+            addMark(x, y1, x, y2);
+        }
+        if (params.dirs.bottomCenter) {
+            double x = (left + right) * 0.5;
+            double y1 = bottom - oVer;
+            double y2 = y1 - lVer;
+            addMark(x, y1, x, y2);
+        }
+        if (params.dirs.bottomRight) {
+            double x = right - bHor;
+            double y1 = bottom - oVer;
+            double y2 = y1 - lVer;
+            addMark(x, y1, x, y2);
+        }
+    }
+
+    // LEFT BLOCK (horizontal lines)
+    if (canDoLeft) {
+        if (params.dirs.leftTop) {
+            double y = top - bVer;
+            double x1 = left - oHor;
+            double x2 = x1 - lHor;
+            addMark(x1, y, x2, y);
+        }
+        if (params.dirs.leftCenter) {
+            double y = (top + bottom) * 0.5;
+            double x1 = left - oHor;
+            double x2 = x1 - lHor;
+            addMark(x1, y, x2, y);
+        }
+        if (params.dirs.leftBottom) {
+            double y = bottom + bVer;
+            double x1 = left - oHor;
+            double x2 = x1 - lHor;
+            addMark(x1, y, x2, y);
+        }
+    }
+
+    // RIGHT BLOCK (horizontal lines)
+    if (canDoRight) {
+        if (params.dirs.rightTop) {
+            double y = top - bVer;
+            double x1 = right + oHor;
+            double x2 = x1 + lHor;
+            addMark(x1, y, x2, y);
+        }
+        if (params.dirs.rightCenter) {
+            double y = (top + bottom) * 0.5;
+            double x1 = right + oHor;
+            double x2 = x1 + lHor;
+            addMark(x1, y, x2, y);
+        }
+        if (params.dirs.rightBottom) {
+            double y = bottom + bVer;
+            double x1 = right + oHor;
+            double x2 = x1 + lHor;
+            addMark(x1, y, x2, y);
+        }
+    }
+}
+
+struct TargetItem {
+    AIArtHandle art = nullptr;
+    AIRealRect bounds = { 0, 0, 0, 0 };
+};
+
+struct Cluster {
+    std::vector<TargetItem> items;
+    AIRealRect unionRc;
+};
+
+static double RectDistance(const AIRealRect& a, const AIRealRect& b) {
+    double dx = 0.0;
+    if (a.right < b.left) dx = b.left - a.right;
+    else if (b.right < a.left) dx = a.left - b.right;
+
+    double dy = 0.0;
+    // In Illustrator: top > bottom
+    if (a.bottom > b.top) dy = a.bottom - b.top;
+    else if (b.bottom > a.top) dy = b.bottom - a.top;
+
+    return std::sqrt(dx * dx + dy * dy);
+}
+
+static std::vector<Cluster> BuildClusters(const std::vector<TargetItem>& allItems, double gapThreshold = 50.0) {
+    std::vector<Cluster> clusters;
+    if (allItems.empty()) return clusters;
+
+    size_t n = allItems.size();
+    std::vector<bool> visited(n, false);
+
+    for (size_t i = 0; i < n; ++i) {
+        if (visited[i]) continue;
+
+        Cluster c;
+        std::vector<size_t> queue;
+        queue.push_back(i);
+        visited[i] = true;
+
+        while (!queue.empty()) {
+            size_t curr = queue.back();
+            queue.pop_back();
+
+            c.items.push_back(allItems[curr]);
+
+            for (size_t j = 0; j < n; ++j) {
+                if (!visited[j]) {
+                    double dist = RectDistance(allItems[curr].bounds, allItems[j].bounds);
+                    if (dist <= gapThreshold) {
+                        visited[j] = true;
+                        queue.push_back(j);
+                    }
+                }
+            }
+        }
+
+        // Calculate unionRc for cluster
+        c.unionRc = c.items[0].bounds;
+        for (size_t k = 1; k < c.items.size(); ++k) {
+            if (c.items[k].bounds.left < c.unionRc.left) c.unionRc.left = c.items[k].bounds.left;
+            if (c.items[k].bounds.top > c.unionRc.top) c.unionRc.top = c.items[k].bounds.top;
+            if (c.items[k].bounds.right > c.unionRc.right) c.unionRc.right = c.items[k].bounds.right;
+            if (c.items[k].bounds.bottom < c.unionRc.bottom) c.unionRc.bottom = c.items[k].bounds.bottom;
+        }
+
+        clusters.push_back(c);
+    }
+
+    return clusters;
+}
+
 CropMarkResult CropMarkEngine::CreateCropMarks(const CropMarkParams& params) {
     auto startTime = std::chrono::high_resolution_clock::now();
     CropMarkResult res;
@@ -247,10 +484,16 @@ CropMarkResult CropMarkEngine::CreateCropMarks(const CropMarkParams& params) {
         return res;
     }
 
-    // Determine target bounding boxes
-    std::vector<AIRealRect> targetRects;
-    std::vector<AIArtHandle> selectedArts;
-    AIArtHandle lowestTargetArt = nullptr;
+    // Geometry values in points
+    const double lVer = CropMarkParams::UnitToPoints(params.lengthVer, params.units);
+    const double lHor = CropMarkParams::UnitToPoints(params.lengthHor, params.units);
+    const double oVer = CropMarkParams::UnitToPoints(params.offsetVer, params.units);
+    const double oHor = CropMarkParams::UnitToPoints(params.offsetHor, params.units);
+    const double bVer = CropMarkParams::UnitToPoints(params.bleedVer, params.units);
+    const double bHor = CropMarkParams::UnitToPoints(params.bleedHor, params.units);
+    const double strokeWidthPt = CropMarkParams::UnitToPoints(params.strokeWidth, params.strokeUnits);
+
+    std::vector<TargetItem> targetItems;
 
     if (params.targetMode == kTargetArtboard) {
         if (!sAIArtboard) {
@@ -266,7 +509,9 @@ CropMarkResult CropMarkEngine::CreateCropMarks(const CropMarkParams& params) {
                 if (sAIArtboard->GetArtboardProperties(abList, activeIndex, props) == kNoErr) {
                     AIRealRect abBounds;
                     if (sAIArtboard->GetPosition(props, abBounds) == kNoErr) {
-                        targetRects.push_back(abBounds);
+                        if (abBounds.left > abBounds.right) std::swap(abBounds.left, abBounds.right);
+                        if (abBounds.bottom > abBounds.top) std::swap(abBounds.bottom, abBounds.top);
+                        targetItems.push_back({ nullptr, abBounds });
                     }
                 }
                 sAIArtboard->Dispose(props);
@@ -293,7 +538,7 @@ CropMarkResult CropMarkEngine::CreateCropMarks(const CropMarkParams& params) {
         rawList.reserve(artCount);
         for (ai::int32 i = 0; i < artCount; ++i) {
             AIArtHandle a = (*matches)[i];
-            if (!a || IsGuide(a)) continue;
+            if (!a || IsGuide(a) || IsCropMarksGroup(a)) continue;
             rawList.push_back(a);
         }
 
@@ -303,6 +548,7 @@ CropMarkResult CropMarkEngine::CreateCropMarks(const CropMarkParams& params) {
         }
 
         // Filter out layer groups and nested children of selected parents
+        std::vector<AIArtHandle> selectedArts;
         for (AIArtHandle a : rawList) {
             if (IsLayerArt(a)) continue;
             if (HasSelectedAncestor(a, rawList)) continue;
@@ -310,52 +556,23 @@ CropMarkResult CropMarkEngine::CreateCropMarks(const CropMarkParams& params) {
         }
 
         if (selectedArts.empty()) {
-            res.message = "No valid objects found in selection (guides ignored).";
+            res.message = "No valid objects found in selection (guides and crop marks ignored).";
             return res;
         }
 
-        lowestTargetArt = selectedArts[0];
-
-        if (params.targetMode == kTargetEntireSelection) {
-            AIRealRect unionRc = GetObjectBounds(selectedArts[0], params.boundsMode);
-            for (size_t i = 1; i < selectedArts.size(); ++i) {
-                AIRealRect r = GetObjectBounds(selectedArts[i], params.boundsMode);
-                if (r.left < unionRc.left) unionRc.left = r.left;
-                if (r.right > unionRc.right) unionRc.right = r.right;
-                if (r.top > unionRc.top) unionRc.top = r.top;
-                if (r.bottom < unionRc.bottom) unionRc.bottom = r.bottom;
-            }
-            targetRects.push_back(unionRc);
-        } else {
-            // Each object in selection
-            for (AIArtHandle a : selectedArts) {
-                targetRects.push_back(GetObjectBounds(a, params.boundsMode));
+        // Clean any existing embedded crop marks inside selected groups before computing bounds
+        for (AIArtHandle a : selectedArts) {
+            RemoveExistingCropMarks(a);
+            AIRealRect b = GetObjectBounds(a, params.boundsMode);
+            if (std::abs(b.right - b.left) > 0.001 && std::abs(b.top - b.bottom) > 0.001) {
+                targetItems.push_back({ a, b });
             }
         }
     }
 
-    if (targetRects.empty()) {
+    if (targetItems.empty()) {
         res.message = "No target bounds calculated.";
         return res;
-    }
-
-    // Calculate union bounding box of all target rects for perimeter filtering
-    AIRealRect unionRc = targetRects[0];
-    for (size_t i = 1; i < targetRects.size(); ++i) {
-        if (targetRects[i].left < unionRc.left) unionRc.left = targetRects[i].left;
-        if (targetRects[i].top > unionRc.top) unionRc.top = targetRects[i].top;
-        if (targetRects[i].right > unionRc.right) unionRc.right = targetRects[i].right;
-        if (targetRects[i].bottom < unionRc.bottom) unionRc.bottom = targetRects[i].bottom;
-    }
-
-    // Find active layer container or use lowestTargetArt
-    AILayerHandle layer = nullptr;
-    if (sAIArt && lowestTargetArt) {
-        sAIArt->GetLayerOfArt(lowestTargetArt, &layer);
-    }
-    AIArtHandle layerGroup = nullptr;
-    if (sAIArt) {
-        sAIArt->GetFirstArtOfLayer(layer, &layerGroup);
     }
 
     // Undo registration
@@ -363,202 +580,210 @@ CropMarkResult CropMarkEngine::CreateCropMarks(const CropMarkParams& params) {
         sAIUndo->SetUndoTextUS(ai::UnicodeString("Undo Make Crop Marks"), ai::UnicodeString("Redo Make Crop Marks"));
     }
 
-    // Dedicated group for crop marks - create inside-on-bottom of layer group to be behind artwork
-    AIArtHandle marksGroup = nullptr;
-    if (layerGroup) {
-        sAIArt->NewArt(kGroupArt, kPlaceInsideOnBottom, layerGroup, &marksGroup);
-    } else if (lowestTargetArt) {
-        sAIArt->NewArt(kGroupArt, kPlaceBelow, lowestTargetArt, &marksGroup);
-    } else {
-        sAIArt->NewArt(kGroupArt, kPlaceBelowAll, nullptr, &marksGroup);
-    }
+    int totalMarksCreated = 0;
 
-    if (!marksGroup) {
-        res.message = "Failed to create crop marks container group.";
-        return res;
-    }
-    sAIArt->SetArtName(marksGroup, ai::UnicodeString("Crop Marks"));
+    if (params.targetMode == kTargetArtboard) {
+        // Artboard target: create marks in a top-level group
+        AIArtHandle marksGroup = nullptr;
+        sAIArt->NewArt(kGroupArt, kPlaceAboveAll, nullptr, &marksGroup);
+        if (!marksGroup) {
+            res.message = "Failed to create crop marks container group.";
+            return res;
+        }
+        sAIArt->SetArtName(marksGroup, ai::UnicodeString("Crop Marks"));
 
-    // Geometry values in points
-    const double lVer = CropMarkParams::UnitToPoints(params.lengthVer, params.units);
-    const double lHor = CropMarkParams::UnitToPoints(params.lengthHor, params.units);
-    const double oVer = CropMarkParams::UnitToPoints(params.offsetVer, params.units);
-    const double oHor = CropMarkParams::UnitToPoints(params.offsetHor, params.units);
-    const double bVer = CropMarkParams::UnitToPoints(params.bleedVer, params.units);
-    const double bHor = CropMarkParams::UnitToPoints(params.bleedHor, params.units);
-    const double strokeWidthPt = CropMarkParams::UnitToPoints(params.strokeWidth, params.strokeUnits);
+        std::vector<LineDedupeEntry> dedupeList;
+        std::vector<AIArtHandle> groupMarks;
 
-    std::vector<LineDedupeEntry> dedupeList;
-    std::vector<AIArtHandle> allMarks;
-
-    auto addMark = [&](double x1, double y1, double x2, double y2) {
-        // 1. White underlay
-        if (params.whiteContour) {
-            LineDedupeEntry whiteEntry = { x1, y1, x2, y2, false };
-            bool exists = false;
-            for (const auto& d : dedupeList) {
-                if (AreLinesEqual(d, whiteEntry)) { exists = true; break; }
-            }
-            if (!exists) {
-                AIArtHandle wArt = CreateLineArt(marksGroup, x1, y1, x2, y2, false, strokeWidthPt + 1.0);
-                if (wArt) {
-                    dedupeList.push_back(whiteEntry);
-                    allMarks.push_back(wArt);
+        auto addMark = [&](double x1, double y1, double x2, double y2) {
+            if (params.whiteContour) {
+                LineDedupeEntry whiteEntry = { x1, y1, x2, y2, false };
+                bool exists = false;
+                for (const auto& d : dedupeList) {
+                    if (AreLinesEqual(d, whiteEntry)) { exists = true; break; }
+                }
+                if (!exists) {
+                    AIArtHandle wArt = CreateLineArt(marksGroup, x1, y1, x2, y2, false, strokeWidthPt + 1.0);
+                    if (wArt) {
+                        dedupeList.push_back(whiteEntry);
+                        groupMarks.push_back(wArt);
+                    }
                 }
             }
+
+            LineDedupeEntry regEntry = { x1, y1, x2, y2, true };
+            bool exists = false;
+            for (const auto& d : dedupeList) {
+                if (AreLinesEqual(d, regEntry)) { exists = true; break; }
+            }
+            if (!exists) {
+                AIArtHandle rArt = CreateLineArt(marksGroup, x1, y1, x2, y2, true, strokeWidthPt);
+                if (rArt) {
+                    dedupeList.push_back(regEntry);
+                    groupMarks.push_back(rArt);
+                }
+            }
+        };
+
+        GenerateMarksForRect(targetItems[0].bounds, params, true, true, true, true,
+                             lVer, lHor, oVer, oHor, bVer, bHor, addMark);
+
+        sAIArt->SetArtUserAttr(marksGroup, kArtSelected, 0);
+        for (AIArtHandle m : groupMarks) {
+            sAIArt->SetArtUserAttr(m, kArtSelected, 0);
         }
+        totalMarksCreated = (int)groupMarks.size();
 
-        // 2. Registration stroke
-        LineDedupeEntry regEntry = { x1, y1, x2, y2, true };
-        bool exists = false;
-        for (const auto& d : dedupeList) {
-            if (AreLinesEqual(d, regEntry)) { exists = true; break; }
-        }
-        if (!exists) {
-            AIArtHandle rArt = CreateLineArt(marksGroup, x1, y1, x2, y2, true, strokeWidthPt);
-            if (rArt) {
-                dedupeList.push_back(regEntry);
-                allMarks.push_back(rArt);
-            }
-        }
-    };
+    } else {
+        // Selected items: split into spatial clusters (e.g. 1 cluster per artboard or card block)
+        std::vector<Cluster> clusters = BuildClusters(targetItems, 50.0);
 
-    // Build crop marks for each rectangle
-    for (const auto& rc : targetRects) {
-        const double left = rc.left;
-        const double top = rc.top;
-        const double right = rc.right;
-        const double bottom = rc.bottom;
+        for (const auto& cluster : clusters) {
+            if (cluster.items.empty()) continue;
 
-        // Perimeter filtering: do not make marks on inner edges of the selection block
-        bool canDoTop = !params.perimeterOnly || (std::abs(top - unionRc.top) <= 0.2);
-        bool canDoBottom = !params.perimeterOnly || (std::abs(bottom - unionRc.bottom) <= 0.2);
-        bool canDoLeft = !params.perimeterOnly || (std::abs(left - unionRc.left) <= 0.2);
-        bool canDoRight = !params.perimeterOnly || (std::abs(right - unionRc.right) <= 0.2);
+            AIArtHandle anchorArt = cluster.items[0].art;
+            AIArtHandle marksGroup = nullptr;
+            AIErr gErr = sAIArt->NewArt(kGroupArt, kPlaceBelow, anchorArt, &marksGroup);
+            if (gErr != kNoErr || !marksGroup) continue;
+            sAIArt->SetArtName(marksGroup, ai::UnicodeString("Crop Marks"));
 
-        // TOP BLOCK (vertical lines)
-        if (canDoTop) {
-            if (params.dirs.topLeft) {
-                double x = left + bHor;
-                double y1 = top + oVer;
-                double y2 = y1 + lVer;
-                addMark(x, y1, x, y2);
-            }
-            if (params.dirs.topCenter) {
-                double x = (left + right) * 0.5;
-                double y1 = top + oVer;
-                double y2 = y1 + lVer;
-                addMark(x, y1, x, y2);
-            }
-            if (params.dirs.topRight) {
-                double x = right - bHor;
-                double y1 = top + oVer;
-                double y2 = y1 + lVer;
-                addMark(x, y1, x, y2);
-            }
-        }
+            std::vector<LineDedupeEntry> dedupeList;
+            std::vector<AIArtHandle> clusterMarks;
 
-        // BOTTOM BLOCK (vertical lines)
-        if (canDoBottom) {
-            if (params.dirs.bottomLeft) {
-                double x = left + bHor;
-                double y1 = bottom - oVer;
-                double y2 = y1 - lVer;
-                addMark(x, y1, x, y2);
-            }
-            if (params.dirs.bottomCenter) {
-                double x = (left + right) * 0.5;
-                double y1 = bottom - oVer;
-                double y2 = y1 - lVer;
-                addMark(x, y1, x, y2);
-            }
-            if (params.dirs.bottomRight) {
-                double x = right - bHor;
-                double y1 = bottom - oVer;
-                double y2 = y1 - lVer;
-                addMark(x, y1, x, y2);
-            }
-        }
+            auto addMark = [&](double x1, double y1, double x2, double y2) {
+                if (params.whiteContour) {
+                    LineDedupeEntry whiteEntry = { x1, y1, x2, y2, false };
+                    bool exists = false;
+                    for (const auto& d : dedupeList) {
+                        if (AreLinesEqual(d, whiteEntry)) { exists = true; break; }
+                    }
+                    if (!exists) {
+                        AIArtHandle wArt = CreateLineArt(marksGroup, x1, y1, x2, y2, false, strokeWidthPt + 1.0);
+                        if (wArt) {
+                            dedupeList.push_back(whiteEntry);
+                            clusterMarks.push_back(wArt);
+                        }
+                    }
+                }
 
-        // LEFT BLOCK (horizontal lines)
-        if (canDoLeft) {
-            if (params.dirs.leftTop) {
-                double y = top - bVer;
-                double x1 = left - oHor;
-                double x2 = x1 - lHor;
-                addMark(x1, y, x2, y);
-            }
-            if (params.dirs.leftCenter) {
-                double y = (top + bottom) * 0.5;
-                double x1 = left - oHor;
-                double x2 = x1 - lHor;
-                addMark(x1, y, x2, y);
-            }
-            if (params.dirs.leftBottom) {
-                double y = bottom + bVer;
-                double x1 = left - oHor;
-                double x2 = x1 - lHor;
-                addMark(x1, y, x2, y);
-            }
-        }
+                LineDedupeEntry regEntry = { x1, y1, x2, y2, true };
+                bool exists = false;
+                for (const auto& d : dedupeList) {
+                    if (AreLinesEqual(d, regEntry)) { exists = true; break; }
+                }
+                if (!exists) {
+                    AIArtHandle rArt = CreateLineArt(marksGroup, x1, y1, x2, y2, true, strokeWidthPt);
+                    if (rArt) {
+                        dedupeList.push_back(regEntry);
+                        clusterMarks.push_back(rArt);
+                    }
+                }
+            };
 
-        // RIGHT BLOCK (horizontal lines)
-        if (canDoRight) {
-            if (params.dirs.rightTop) {
-                double y = top - bVer;
-                double x1 = right + oHor;
-                double x2 = x1 + lHor;
-                addMark(x1, y, x2, y);
+            if (params.targetMode == kTargetEntireSelection) {
+                // Draw around the entire cluster bounds
+                GenerateMarksForRect(cluster.unionRc, params, true, true, true, true,
+                                     lVer, lHor, oVer, oHor, bVer, bHor, addMark);
+            } else {
+                // kTargetEachObject: draw marks for items in this cluster
+                for (size_t i = 0; i < cluster.items.size(); ++i) {
+                    const auto& item = cluster.items[i];
+                    const AIRealRect& rc = item.bounds;
+
+                    bool canDoTop = true;
+                    bool canDoBottom = true;
+                    bool canDoLeft = true;
+                    bool canDoRight = true;
+
+                    if (params.perimeterOnly && cluster.items.size() > 1) {
+                        const double tol = 2.0; // 2 pt tolerance for touching edges
+                        for (size_t j = 0; j < cluster.items.size(); ++j) {
+                            if (i == j) continue;
+                            const AIRealRect& other = cluster.items[j].bounds;
+
+                            // Touching right
+                            if (std::abs(other.left - rc.right) <= tol) {
+                                double overlapB = (std::max)(rc.bottom, other.bottom);
+                                double overlapT = (std::min)(rc.top, other.top);
+                                if (overlapT - overlapB > tol) canDoRight = false;
+                            }
+
+                            // Touching left
+                            if (std::abs(other.right - rc.left) <= tol) {
+                                double overlapB = (std::max)(rc.bottom, other.bottom);
+                                double overlapT = (std::min)(rc.top, other.top);
+                                if (overlapT - overlapB > tol) canDoLeft = false;
+                            }
+
+                            // Touching top
+                            if (std::abs(other.bottom - rc.top) <= tol) {
+                                double overlapL = (std::max)(rc.left, other.left);
+                                double overlapR = (std::min)(rc.right, other.right);
+                                if (overlapR - overlapL > tol) canDoTop = false;
+                            }
+
+                            // Touching bottom
+                            if (std::abs(other.top - rc.bottom) <= tol) {
+                                double overlapL = (std::max)(rc.left, other.left);
+                                double overlapR = (std::min)(rc.right, other.right);
+                                if (overlapR - overlapL > tol) canDoBottom = false;
+                            }
+                        }
+                    }
+
+                    GenerateMarksForRect(rc, params, canDoTop, canDoBottom, canDoLeft, canDoRight,
+                                         lVer, lHor, oVer, oHor, bVer, bHor, addMark);
+                }
             }
-            if (params.dirs.rightCenter) {
-                double y = (top + bottom) * 0.5;
-                double x1 = right + oHor;
-                double x2 = x1 + lHor;
-                addMark(x1, y, x2, y);
+
+            if (clusterMarks.empty()) {
+                sAIArt->DisposeArt(marksGroup);
+                continue;
             }
-            if (params.dirs.rightBottom) {
-                double y = bottom + bVer;
-                double x1 = right + oHor;
-                double x2 = x1 + lHor;
-                addMark(x1, y, x2, y);
+
+            totalMarksCreated += (int)clusterMarks.size();
+
+            sAIArt->SetArtUserAttr(marksGroup, kArtSelected, 0);
+            for (AIArtHandle m : clusterMarks) {
+                sAIArt->SetArtUserAttr(m, kArtSelected, 0);
+            }
+
+            // CRITICAL: Ensure ALL artwork in cluster is strictly ABOVE marksGroup!
+            // Reordering every art above marksGroup guarantees marks are NEVER on top of artwork!
+            for (const auto& ti : cluster.items) {
+                if (ti.art) {
+                    sAIArt->ReorderArt(ti.art, kPlaceAbove, marksGroup);
+                }
+            }
+
+            // Apply Grouping Mode
+            if (params.groupMode == kGroupMarksAndSelection) {
+                AIArtHandle clusterGroup = nullptr;
+                sAIArt->NewArt(kGroupArt, kPlaceBelow, marksGroup, &clusterGroup);
+                if (clusterGroup) {
+                    sAIArt->ReorderArt(marksGroup, kPlaceInsideOnBottom, clusterGroup);
+                    for (const auto& ti : cluster.items) {
+                        if (ti.art) {
+                            sAIArt->ReorderArt(ti.art, kPlaceInsideOnTop, clusterGroup);
+                        }
+                    }
+                    sAIArt->SetArtUserAttr(clusterGroup, kArtSelected, 0);
+                }
+            } else if (params.groupMode == kGroupNone) {
+                for (AIArtHandle m : clusterMarks) {
+                    sAIArt->ReorderArt(m, kPlaceBelow, marksGroup);
+                }
+                sAIArt->DisposeArt(marksGroup);
+            } else {
+                // kGroupMarksOnly: marksGroup already contains ALL marks for this cluster,
+                // and all artwork is strictly above marksGroup!
             }
         }
     }
 
-    if (allMarks.empty()) {
-        sAIArt->DisposeArt(marksGroup);
+    if (totalMarksCreated == 0) {
         res.message = "No marks created (all directions unchecked or zero bounds).";
         return res;
-    }
-
-    // Apply Grouping Mode & Send To Back
-    if (params.groupMode == kGroupMarksAndSelection && !selectedArts.empty()) {
-        // Group marks and selected artwork together into one top-level group
-        AIArtHandle parentGroup = nullptr;
-        sAIArt->NewArt(kGroupArt, kPlaceBelow, lowestTargetArt, &parentGroup);
-        if (parentGroup) {
-            sAIArt->ReorderArt(marksGroup, kPlaceInsideOnBottom, parentGroup);
-            for (AIArtHandle a : selectedArts) {
-                sAIArt->ReorderArt(a, kPlaceInsideOnTop, parentGroup);
-            }
-        }
-    } else if (params.groupMode == kGroupNone) {
-        // Ungroup marks out of marksGroup and move them behind artwork
-        for (AIArtHandle m : allMarks) {
-            if (layerGroup) {
-                sAIArt->ReorderArt(m, kPlaceInsideOnBottom, layerGroup);
-            } else if (lowestTargetArt) {
-                sAIArt->ReorderArt(m, kPlaceBelow, lowestTargetArt);
-            }
-        }
-        sAIArt->DisposeArt(marksGroup);
-    } else {
-        // kGroupMarksOnly: ensure marksGroup is placed below all artwork
-        if (layerGroup) {
-            sAIArt->ReorderArt(marksGroup, kPlaceInsideOnBottom, layerGroup);
-        } else if (lowestTargetArt) {
-            sAIArt->ReorderArt(marksGroup, kPlaceBelow, lowestTargetArt);
-        }
     }
 
     // Invalidate and force document redraw
@@ -569,8 +794,8 @@ CropMarkResult CropMarkEngine::CreateCropMarks(const CropMarkParams& params) {
     auto endTime = std::chrono::high_resolution_clock::now();
     res.elapsedMs = std::chrono::duration<double, std::milli>(endTime - startTime).count();
     res.success = true;
-    res.marksCount = (int)allMarks.size();
-    res.objectsCount = (int)targetRects.size();
+    res.marksCount = totalMarksCreated;
+    res.objectsCount = (int)targetItems.size();
 
     char msgBuf[256];
     snprintf(msgBuf, sizeof(msgBuf), "Created %d crop marks for %d object(s) in %.2f ms",

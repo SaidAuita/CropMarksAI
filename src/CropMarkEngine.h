@@ -105,6 +105,8 @@ public:
     static bool IsGuide(AIArtHandle art);
     static bool IsLayerArt(AIArtHandle art);
     static bool HasSelectedAncestor(AIArtHandle art, const std::vector<AIArtHandle>& allMatches);
+    static bool IsCropMarksGroup(AIArtHandle art);
+    static void RemoveExistingCropMarks(AIArtHandle art);
 
 private:
     CropMarkEngine() = default;

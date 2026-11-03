@@ -4,7 +4,7 @@
 #include <commctrl.h>
 #include <windowsx.h>
 
-#define PLUGIN_VERSION_STR "v1.08"
+#define PLUGIN_VERSION_STR "v1.11"
 
 #pragma comment(lib, "comctl32.lib")
 
@@ -1004,7 +1004,8 @@ static LRESULT CALLBACK MakeCropMarksAIPanelProc(HWND hwnd, UINT msg, WPARAM wPa
 
             switch (id) {
                 case IDC_BTN_SETTINGS: {
-                    ConfigManager::GetInstance().ShowSettingsDialog(hwnd);
+                    float scale = GetPanelScale(hwnd);
+                    ConfigManager::GetInstance().ShowSettingsDialog(hwnd, scale);
                     return 0;
                 }
                 case IDC_BTN_PRESET_SAVE: {
@@ -1549,7 +1550,8 @@ SPErr MakeCropMarksAIPlugin::GoMenuItem(void* message) {
     } else if (menuMsg->menuItem == m_hMenuQuickApply) {
         ExecuteQuickApply();
     } else if (menuMsg->menuItem == m_hMenuSettings) {
-        ConfigManager::GetInstance().ShowSettingsDialog(m_hPanelDlg);
+        float scale = GetPanelScale(m_hPanelDlg);
+        ConfigManager::GetInstance().ShowSettingsDialog(m_hPanelDlg, scale);
     }
     return kSPNoError;
 }

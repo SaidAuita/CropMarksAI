@@ -41,7 +41,7 @@ public:
     void SetActiveParams(const CropMarkParams& params);
 
     // Displays the modal Preferences / Hotkeys dialog
-    bool ShowSettingsDialog(HWND parentHwnd);
+    bool ShowSettingsDialog(HWND parentHwnd, float currentScale = 0.0f);
     bool IsDialogActive() const { return m_dialogActive; }
 
     std::string GetAppDataFolder() const;
