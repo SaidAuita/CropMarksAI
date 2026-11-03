@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="44" height="36" viewBox="0 0 44 36">
+  <defs>
+    <style>
+      .fill {
+        fill: #303030;
+      }
+    </style>
+  </defs>
+  <rect class="fill" x="9.52" y="0" width="3" height="5.8"/>
+  <rect class="fill" x="31.48" y="0" width="3" height="5.8"/>
+  <rect class="fill" x="0" y="7.51" width="7.86" height="3"/>
+  <rect class="fill" x="36.14" y="7.51" width="7.86" height="3"/>
+  <rect class="fill" x="0" y="25.49" width="7.86" height="3"/>
+  <rect class="fill" x="36.14" y="25.49" width="7.86" height="3"/>
+  <rect class="fill" x="9.52" y="30.2" width="3" height="5.8"/>
+  <rect class="fill" x="31.48" y="30.2" width="3" height="5.8"/>
+  <path class="fill" d="M9.52,7.51v20.98h24.96V7.51H9.52ZM31.48,25.49H12.52v-14.98h18.96v14.98Z"/>
+</svg>

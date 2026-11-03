@@ -4,7 +4,7 @@
 #include <commctrl.h>
 #include <windowsx.h>
 
-#define PLUGIN_VERSION_STR "v1.07"
+#define PLUGIN_VERSION_STR "v1.08"
 
 #pragma comment(lib, "comctl32.lib")
 
