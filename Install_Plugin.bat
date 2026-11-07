@@ -31,16 +31,24 @@ echo.
 
 :: --- 2. Check for Compiled Plugin ---
 set "AIP_SRC="
-if exist "%~dp0CropMarksAI.aip" set "AIP_SRC=%~dp0CropMarksAI.aip"
-if not defined AIP_SRC (
-    if exist "%~dp0build\x64\CropMarksAI.aip" set "AIP_SRC=%~dp0build\x64\CropMarksAI.aip"
+if exist "%~dp0build\x64\CropMarksAI.aip" (
+    set "AIP_SRC=%~dp0build\x64\CropMarksAI.aip"
+    copy /y "%~dp0build\x64\CropMarksAI.aip" "%~dp0CropMarksAI.aip" >nul 2>&1
+) else if exist "%~dp0CropMarksAI.aip" (
+    set "AIP_SRC=%~dp0CropMarksAI.aip"
 )
+
 if not defined AIP_SRC (
     if exist "%~dp0build.bat" (
         echo [INFO] Compiled plugin file not found.
         echo [*] Starting automatic build via build.bat...
         call "%~dp0build.bat"
-        if exist "%~dp0build\x64\CropMarksAI.aip" set "AIP_SRC=%~dp0build\x64\CropMarksAI.aip"
+        if exist "%~dp0build\x64\CropMarksAI.aip" (
+            set "AIP_SRC=%~dp0build\x64\CropMarksAI.aip"
+            copy /y "%~dp0build\x64\CropMarksAI.aip" "%~dp0CropMarksAI.aip" >nul 2>&1
+        ) else if exist "%~dp0CropMarksAI.aip" (
+            set "AIP_SRC=%~dp0CropMarksAI.aip"
+        )
     )
 )
 
@@ -49,14 +57,17 @@ if not defined AIP_SRC (
     echo ================================================================================
     echo  [ERROR] Failed to find or compile CropMarksAI.aip
     echo  Looked in:
-    echo    1. %~dp0CropMarksAI.aip
-    echo    2. %~dp0build\x64\CropMarksAI.aip
+    echo    1. %~dp0build\x64\CropMarksAI.aip
+    echo    2. %~dp0CropMarksAI.aip
     echo ================================================================================
     echo.
     echo Press any key to exit...
     pause >nul
     exit /b 1
 )
+
+echo [*] Source binary: %AIP_SRC%
+echo.
 
 :: --- 3. Check for Running Illustrator Process ---
 tasklist /FI "IMAGENAME eq Illustrator.exe" 2>nul | find /I /N "Illustrator.exe" >nul

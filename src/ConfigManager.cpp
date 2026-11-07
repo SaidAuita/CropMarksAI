@@ -189,7 +189,15 @@ void ConfigManager::SetPreset(int index, const PresetItem& p) {
 }
 
 CropMarkParams ConfigManager::GetActiveParams() const {
-    return GetPreset(m_activePresetIndex).params;
+    CropMarkParams p = GetPreset(m_activePresetIndex).params;
+    p.barsOffset = m_barsOffset;
+    p.crossOffset = m_crossOffset;
+    p.cropMarksLayerOrder = m_cropMarksLayerOrder;
+    p.crossMarksLayerOrder = m_crossMarksLayerOrder;
+    p.barLength = m_barLength;
+    p.barStandard = m_barStandard;
+    p.docInfo = m_docInfo;
+    return p;
 }
 
 void ConfigManager::SetActiveParams(const CropMarkParams& params) {
@@ -277,6 +285,16 @@ void ConfigManager::LoadPresetsFromJson() {
         m_presets[i].params.strokeUnits = getInt("strokeUnits", m_presets[i].params.strokeUnits);
         m_presets[i].params.whiteContour = getBool("whiteContour", m_presets[i].params.whiteContour);
         m_presets[i].params.perimeterOnly = getBool("perimeterOnly", true);
+        m_presets[i].params.regMarks = getBool("regMarks", false);
+        m_presets[i].params.colorBarsLong = getBool("colorBarsLong", false);
+        m_presets[i].params.colorBarsShort = getBool("colorBarsShort", false);
+        m_presets[i].params.barsOffset = getDouble("barsOffset", m_presets[i].params.barsOffset);
+        m_presets[i].params.crossOffset = getDouble("crossOffset", m_presets[i].params.crossOffset);
+        m_presets[i].params.cropMarksLayerOrder = getInt("cropMarksLayerOrder", m_cropMarksLayerOrder);
+        m_presets[i].params.crossMarksLayerOrder = getInt("crossMarksLayerOrder", m_crossMarksLayerOrder);
+        m_presets[i].params.barLength = getInt("barLength", m_barLength);
+        m_presets[i].params.barStandard = getInt("barStandard", m_barStandard);
+        m_presets[i].params.docInfo = getBool("docInfo", m_docInfo);
         m_presets[i].params.boundsMode = getInt("boundsMode", m_presets[i].params.boundsMode);
         m_presets[i].params.groupMode = getInt("groupMode", m_presets[i].params.groupMode);
         m_presets[i].params.targetMode = getInt("targetMode", m_presets[i].params.targetMode);
@@ -321,6 +339,16 @@ void ConfigManager::SavePresetsToJson() {
         file << "      \"strokeUnits\": " << p.params.strokeUnits << ",\n";
         file << "      \"whiteContour\": " << (p.params.whiteContour ? "true" : "false") << ",\n";
         file << "      \"perimeterOnly\": " << (p.params.perimeterOnly ? "true" : "false") << ",\n";
+        file << "      \"regMarks\": " << (p.params.regMarks ? "true" : "false") << ",\n";
+        file << "      \"colorBarsLong\": " << (p.params.colorBarsLong ? "true" : "false") << ",\n";
+        file << "      \"colorBarsShort\": " << (p.params.colorBarsShort ? "true" : "false") << ",\n";
+        file << "      \"barsOffset\": " << p.params.barsOffset << ",\n";
+        file << "      \"crossOffset\": " << p.params.crossOffset << ",\n";
+        file << "      \"cropMarksLayerOrder\": " << p.params.cropMarksLayerOrder << ",\n";
+        file << "      \"crossMarksLayerOrder\": " << p.params.crossMarksLayerOrder << ",\n";
+        file << "      \"barLength\": " << p.params.barLength << ",\n";
+        file << "      \"barStandard\": " << p.params.barStandard << ",\n";
+        file << "      \"docInfo\": " << (p.params.docInfo ? "true" : "false") << ",\n";
         file << "      \"boundsMode\": " << p.params.boundsMode << ",\n";
         file << "      \"groupMode\": " << p.params.groupMode << ",\n";
         file << "      \"targetMode\": " << p.params.targetMode << ",\n";
@@ -355,6 +383,17 @@ void ConfigManager::Load() {
     m_activePresetIndex = GetPrivateProfileIntA("General", "ActivePresetIndex", 0, ini.c_str());
     if (m_activePresetIndex < 0 || m_activePresetIndex >= 8) m_activePresetIndex = 0;
 
+    char buf[64];
+    GetPrivateProfileStringA("Prepress", "BarsOffset", "0.0", buf, sizeof(buf), ini.c_str());
+    m_barsOffset = atof(buf);
+    GetPrivateProfileStringA("Prepress", "CrossOffset", "0.0", buf, sizeof(buf), ini.c_str());
+    m_crossOffset = atof(buf);
+    m_cropMarksLayerOrder = GetPrivateProfileIntA("Prepress", "CropMarksLayerOrder", kCropMarksAbovePatches, ini.c_str());
+    m_crossMarksLayerOrder = GetPrivateProfileIntA("Prepress", "CrossMarksLayerOrder", kCrossMarksAbovePatches, ini.c_str());
+    m_barLength = GetPrivateProfileIntA("Prepress", "BarLength", kColorBarShort, ini.c_str());
+    m_barStandard = GetPrivateProfileIntA("Prepress", "BarStandard", kStandardISO12647_2, ini.c_str());
+    m_docInfo = (GetPrivateProfileIntA("Prepress", "DocInfo", 0, ini.c_str()) != 0);
+
     LoadPresetsFromJson();
 }
 
@@ -369,6 +408,17 @@ void ConfigManager::Save() {
 
     WritePrivateProfileStringA("General", "Disabled", m_disabled ? "1" : "0", ini.c_str());
     WritePrivateProfileStringA("General", "ActivePresetIndex", std::to_string(m_activePresetIndex).c_str(), ini.c_str());
+
+    char buf[64];
+    snprintf(buf, sizeof(buf), "%.2f", m_barsOffset);
+    WritePrivateProfileStringA("Prepress", "BarsOffset", buf, ini.c_str());
+    snprintf(buf, sizeof(buf), "%.2f", m_crossOffset);
+    WritePrivateProfileStringA("Prepress", "CrossOffset", buf, ini.c_str());
+    WritePrivateProfileStringA("Prepress", "CropMarksLayerOrder", std::to_string(m_cropMarksLayerOrder).c_str(), ini.c_str());
+    WritePrivateProfileStringA("Prepress", "CrossMarksLayerOrder", std::to_string(m_crossMarksLayerOrder).c_str(), ini.c_str());
+    WritePrivateProfileStringA("Prepress", "BarLength", std::to_string(m_barLength).c_str(), ini.c_str());
+    WritePrivateProfileStringA("Prepress", "BarStandard", std::to_string(m_barStandard).c_str(), ini.c_str());
+    WritePrivateProfileStringA("Prepress", "DocInfo", m_docInfo ? "1" : "0", ini.c_str());
 
     SavePresetsToJson();
 }
@@ -397,19 +447,33 @@ bool ConfigManager::MatchHotkey(const HotkeyConfig& hk, UINT vkCode, UINT curren
 // ----------------------------------------------------------------------------
 // Win32 Settings Dialog
 // ----------------------------------------------------------------------------
-#define IDC_MOD_OPENUI      1001
-#define IDC_KEY_OPENUI      1002
-#define IDC_MOD_QUICK       1003
-#define IDC_KEY_QUICK       1004
-#define IDC_CHK_DISABLE     1005
-#define IDC_BTN_OK          1006
-#define IDC_BTN_CANCEL      1007
-#define IDC_BTN_DEFAULTS    1008
+#define IDC_MOD_OPENUI       1001
+#define IDC_KEY_OPENUI       1002
+#define IDC_MOD_QUICK        1003
+#define IDC_KEY_QUICK        1004
+#define IDC_CHK_DISABLE      1005
+#define IDC_BTN_OK           1006
+#define IDC_BTN_CANCEL       1007
+#define IDC_BTN_DEFAULTS     1008
+#define IDC_EDT_BARS_OFFSET  1009
+#define IDC_EDT_CROSS_OFFSET 1010
+#define IDC_CMB_LAYER_ORDER  1011
+#define IDC_CMB_BAR_LENGTH   1012
+#define IDC_CMB_BAR_STANDARD 1013
+#define IDC_CMB_CROSS_ORDER  1014
+#define IDC_CHK_DOC_INFO     1015
 
 struct DlgData {
     HotkeyConfig openUiHk;
     HotkeyConfig quickHk;
     bool disabled;
+    int cropMarksLayerOrder;
+    int crossMarksLayerOrder;
+    int barLength;
+    int barStandard;
+    double barsOffset;
+    double crossOffset;
+    bool docInfo;
     bool saved;
 };
 
@@ -459,6 +523,46 @@ static void PopulateSettingsControls(HWND hDlg) {
     selectMod(hModQuick, g_dlgData.quickHk.modifiers);
     selectKey(hKeyQuick, g_dlgData.quickHk.vkCode);
 
+    HWND hCmbLayer = GetDlgItem(hDlg, IDC_CMB_LAYER_ORDER);
+    if (hCmbLayer) {
+        SendMessageA(hCmbLayer, CB_RESETCONTENT, 0, 0);
+        SendMessageA(hCmbLayer, CB_ADDSTRING, 0, (LPARAM)"Above color bars");
+        SendMessageA(hCmbLayer, CB_ADDSTRING, 0, (LPARAM)"Below color bars");
+        SendMessage(hCmbLayer, CB_SETCURSEL, (WPARAM)(g_dlgData.cropMarksLayerOrder == kCropMarksBelowPatches ? 1 : 0), 0);
+    }
+
+    HWND hCmbCross = GetDlgItem(hDlg, IDC_CMB_CROSS_ORDER);
+    if (hCmbCross) {
+        SendMessageA(hCmbCross, CB_RESETCONTENT, 0, 0);
+        SendMessageA(hCmbCross, CB_ADDSTRING, 0, (LPARAM)"Above color bars");
+        SendMessageA(hCmbCross, CB_ADDSTRING, 0, (LPARAM)"Below color bars");
+        SendMessage(hCmbCross, CB_SETCURSEL, (WPARAM)(g_dlgData.crossMarksLayerOrder == kCrossMarksBelowPatches ? 1 : 0), 0);
+    }
+
+    HWND hCmbLength = GetDlgItem(hDlg, IDC_CMB_BAR_LENGTH);
+    if (hCmbLength) {
+        SendMessageA(hCmbLength, CB_RESETCONTENT, 0, 0);
+        SendMessageA(hCmbLength, CB_ADDSTRING, 0, (LPARAM)"Short");
+        SendMessageA(hCmbLength, CB_ADDSTRING, 0, (LPARAM)"Long");
+        SendMessage(hCmbLength, CB_SETCURSEL, (WPARAM)(g_dlgData.barLength == kColorBarLong ? 1 : 0), 0);
+    }
+
+    HWND hCmbStd = GetDlgItem(hDlg, IDC_CMB_BAR_STANDARD);
+    if (hCmbStd) {
+        SendMessageA(hCmbStd, CB_RESETCONTENT, 0, 0);
+        SendMessageA(hCmbStd, CB_ADDSTRING, 0, (LPARAM)"ISO 12647-2 (Offset)");
+        SendMessageA(hCmbStd, CB_ADDSTRING, 0, (LPARAM)"ISO 12647-7 (Digital Proof)");
+        SendMessage(hCmbStd, CB_SETCURSEL, (WPARAM)(g_dlgData.barStandard == kStandardISO12647_7 ? 1 : 0), 0);
+    }
+
+    char buf[32];
+    snprintf(buf, sizeof(buf), "%.2f", g_dlgData.barsOffset);
+    SetDlgItemTextA(hDlg, IDC_EDT_BARS_OFFSET, buf);
+
+    snprintf(buf, sizeof(buf), "%.2f", g_dlgData.crossOffset);
+    SetDlgItemTextA(hDlg, IDC_EDT_CROSS_OFFSET, buf);
+
+    CheckDlgButton(hDlg, IDC_CHK_DOC_INFO, g_dlgData.docInfo ? BST_CHECKED : BST_UNCHECKED);
     CheckDlgButton(hDlg, IDC_CHK_DISABLE, g_dlgData.disabled ? BST_CHECKED : BST_UNCHECKED);
 }
 
@@ -499,6 +603,35 @@ static LRESULT CALLBACK SettingsDlgProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
                     g_dlgData.quickHk.vkCode = g_supportedKeys[idxKeyQuick].vk;
                 }
 
+                char buf[64];
+                if (GetDlgItemTextA(hwnd, IDC_EDT_BARS_OFFSET, buf, sizeof(buf)) > 0) {
+                    g_dlgData.barsOffset = atof(buf);
+                }
+                if (GetDlgItemTextA(hwnd, IDC_EDT_CROSS_OFFSET, buf, sizeof(buf)) > 0) {
+                    g_dlgData.crossOffset = atof(buf);
+                }
+
+                HWND hCmbLayer = GetDlgItem(hwnd, IDC_CMB_LAYER_ORDER);
+                if (hCmbLayer) {
+                    g_dlgData.cropMarksLayerOrder = (SendMessage(hCmbLayer, CB_GETCURSEL, 0, 0) == 1) ? kCropMarksBelowPatches : kCropMarksAbovePatches;
+                }
+
+                HWND hCmbCross = GetDlgItem(hwnd, IDC_CMB_CROSS_ORDER);
+                if (hCmbCross) {
+                    g_dlgData.crossMarksLayerOrder = (SendMessage(hCmbCross, CB_GETCURSEL, 0, 0) == 1) ? kCrossMarksBelowPatches : kCrossMarksAbovePatches;
+                }
+
+                HWND hCmbLength = GetDlgItem(hwnd, IDC_CMB_BAR_LENGTH);
+                if (hCmbLength) {
+                    g_dlgData.barLength = (SendMessage(hCmbLength, CB_GETCURSEL, 0, 0) == 1) ? kColorBarLong : kColorBarShort;
+                }
+
+                HWND hCmbStd = GetDlgItem(hwnd, IDC_CMB_BAR_STANDARD);
+                if (hCmbStd) {
+                    g_dlgData.barStandard = (SendMessage(hCmbStd, CB_GETCURSEL, 0, 0) == 1) ? kStandardISO12647_7 : kStandardISO12647_2;
+                }
+
+                g_dlgData.docInfo = (IsDlgButtonChecked(hwnd, IDC_CHK_DOC_INFO) == BST_CHECKED);
                 g_dlgData.disabled = (IsDlgButtonChecked(hwnd, IDC_CHK_DISABLE) == BST_CHECKED);
                 g_dlgData.saved = true;
                 g_dialogRunning = false;
@@ -513,6 +646,13 @@ static LRESULT CALLBACK SettingsDlgProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
                 g_dlgData.openUiHk = { VK_F4, 0 };
                 g_dlgData.quickHk = { VK_F4, MOD_SHIFT };
                 g_dlgData.disabled = false;
+                g_dlgData.cropMarksLayerOrder = kCropMarksAbovePatches;
+                g_dlgData.crossMarksLayerOrder = kCrossMarksAbovePatches;
+                g_dlgData.barLength = kColorBarShort;
+                g_dlgData.barStandard = kStandardISO12647_2;
+                g_dlgData.barsOffset = 0.0;
+                g_dlgData.crossOffset = 0.0;
+                g_dlgData.docInfo = false;
 
                 HWND hModOpen = GetDlgItem(hwnd, IDC_MOD_OPENUI);
                 HWND hKeyOpen = GetDlgItem(hwnd, IDC_KEY_OPENUI);
@@ -582,6 +722,13 @@ bool ConfigManager::ShowSettingsDialog(HWND parentHwnd, float currentScale) {
     g_dlgData.openUiHk = m_openUiHotkey;
     g_dlgData.quickHk = m_quickApplyHotkey;
     g_dlgData.disabled = m_disabled;
+    g_dlgData.cropMarksLayerOrder = m_cropMarksLayerOrder;
+    g_dlgData.crossMarksLayerOrder = m_crossMarksLayerOrder;
+    g_dlgData.barLength = m_barLength;
+    g_dlgData.barStandard = m_barStandard;
+    g_dlgData.barsOffset = m_barsOffset;
+    g_dlgData.crossOffset = m_crossOffset;
+    g_dlgData.docInfo = m_docInfo;
     g_dlgData.saved = false;
 
     float scale = currentScale;
@@ -603,8 +750,8 @@ bool ConfigManager::ShowSettingsDialog(HWND parentHwnd, float currentScale) {
         RegisterClassExA(&wc);
     }
 
-    int clientW = S(340);
-    int clientH = S(226);
+    int clientW = S(360);
+    int clientH = S(430);
     RECT rc = { 0, 0, clientW, clientH };
     DWORD dwStyle = WS_POPUP | WS_CAPTION | WS_SYSMENU | WS_VISIBLE;
     DWORD dwExStyle = WS_EX_DLGMODALFRAME | WS_EX_TOPMOST;
@@ -664,33 +811,70 @@ bool ConfigManager::ShowSettingsDialog(HWND parentHwnd, float currentScale) {
 
     makeStatic("1. Open / Toggle Panel:", S(20), S(26), S(140), S(18));
     makeCombo(IDC_MOD_OPENUI, S(164), S(24), S(84));
-    makeCombo(IDC_KEY_OPENUI, S(252), S(24), S(68));
+    makeCombo(IDC_KEY_OPENUI, S(252), S(24), S(78));
 
     makeStatic("2. Quick Apply Preset:", S(20), S(50), S(140), S(18));
     makeCombo(IDC_MOD_QUICK, S(164), S(48), S(84));
-    makeCombo(IDC_KEY_QUICK, S(252), S(48), S(68));
+    makeCombo(IDC_KEY_QUICK, S(252), S(48), S(78));
 
-    makeStatic("Hint: Quick Apply generates marks instantly without opening dialog.", S(20), S(74), S(300), S(36));
+    makeStatic("Hint: Quick Apply generates marks instantly without opening dialog.", S(20), S(74), S(310), S(36));
+
+    // UI Group: Prepress Elements & Standards
+    HWND hGrpPrepress = CreateWindowExA(0, "BUTTON", " Prepress Elements & Standards ",
+                                        WS_CHILD | WS_VISIBLE | BS_GROUPBOX,
+                                        S(10), S(124), clientW - S(20), S(206), hDlg, NULL, hInst, NULL);
+    SendMessage(hGrpPrepress, WM_SETFONT, (WPARAM)g_hDlgFont, TRUE);
+
+    makeStatic("Crop marks:", S(20), S(144), S(135), S(18));
+    makeCombo(IDC_CMB_LAYER_ORDER, S(160), S(142), S(180));
+
+    makeStatic("Registration marks:", S(20), S(170), S(135), S(18));
+    makeCombo(IDC_CMB_CROSS_ORDER, S(160), S(168), S(180));
+
+    makeStatic("Scale type:", S(20), S(196), S(135), S(18));
+    makeCombo(IDC_CMB_BAR_LENGTH, S(160), S(194), S(180));
+
+    makeStatic("Standard:", S(20), S(222), S(135), S(18));
+    makeCombo(IDC_CMB_BAR_STANDARD, S(160), S(220), S(180));
+
+    makeStatic("Bars offset (mm):", S(20), S(250), S(96), S(18));
+    HWND hEdtBars = CreateWindowExA(WS_EX_CLIENTEDGE, "EDIT", "0.0",
+                                    WS_CHILD | WS_VISIBLE | ES_AUTOHSCROLL | WS_TABSTOP,
+                                    S(118), S(248), S(46), S(20), hDlg, (HMENU)(INT_PTR)IDC_EDT_BARS_OFFSET, hInst, NULL);
+    SendMessage(hEdtBars, WM_SETFONT, (WPARAM)g_hDlgFont, TRUE);
+
+    makeStatic("Cross offset:", S(174), S(250), S(78), S(18));
+    HWND hEdtCross = CreateWindowExA(WS_EX_CLIENTEDGE, "EDIT", "0.0",
+                                     WS_CHILD | WS_VISIBLE | ES_AUTOHSCROLL | WS_TABSTOP,
+                                     S(254), S(248), S(54), S(20), hDlg, (HMENU)(INT_PTR)IDC_EDT_CROSS_OFFSET, hInst, NULL);
+    SendMessage(hEdtCross, WM_SETFONT, (WPARAM)g_hDlgFont, TRUE);
+
+    HWND hChkDocInfo = CreateWindowExA(0, "BUTTON", "Document info (Name, Date, Time - 5pt above bar)",
+                                       WS_CHILD | WS_VISIBLE | BS_AUTOCHECKBOX | WS_TABSTOP,
+                                       S(20), S(274), clientW - S(40), S(20), hDlg, (HMENU)(INT_PTR)IDC_CHK_DOC_INFO, hInst, NULL);
+    SendMessage(hChkDocInfo, WM_SETFONT, (WPARAM)g_hDlgFont, TRUE);
+
+    makeStatic("Bars: +3mm from 1st crop, stops -3mm before last crop.", S(20), S(298), S(310), S(26));
 
     // UI Group: General / Status
     HWND hGrp2 = CreateWindowExA(0, "BUTTON", " Status ", WS_CHILD | WS_VISIBLE | BS_GROUPBOX,
-                                 S(10), S(124), clientW - S(20), S(52), hDlg, NULL, hInst, NULL);
+                                 S(10), S(336), clientW - S(20), S(48), hDlg, NULL, hInst, NULL);
     SendMessage(hGrp2, WM_SETFONT, (WPARAM)g_hDlgFont, TRUE);
 
     HWND hChkDis = CreateWindowExA(0, "BUTTON", "Disable plugin (disable all hotkeys)",
                                    WS_CHILD | WS_VISIBLE | BS_AUTOCHECKBOX | WS_TABSTOP,
-                                   S(20), S(144), clientW - S(40), S(20), hDlg, (HMENU)(INT_PTR)IDC_CHK_DISABLE, hInst, NULL);
+                                   S(20), S(354), clientW - S(40), S(20), hDlg, (HMENU)(INT_PTR)IDC_CHK_DISABLE, hInst, NULL);
     SendMessage(hChkDis, WM_SETFONT, (WPARAM)g_hDlgFont, TRUE);
 
     // Bottom Action Buttons
     int btnH = S(24);
-    int btnY = S(188);
+    int btnY = S(394);
     HWND hBtnDef = CreateWindowExA(0, "BUTTON", "Defaults", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON | WS_TABSTOP,
                                    S(10), btnY, S(70), btnH, hDlg, (HMENU)(INT_PTR)IDC_BTN_DEFAULTS, hInst, NULL);
     HWND hBtnOk = CreateWindowExA(0, "BUTTON", "Save", WS_CHILD | WS_VISIBLE | BS_DEFPUSHBUTTON | WS_TABSTOP,
-                                  S(188), btnY, S(66), btnH, hDlg, (HMENU)(INT_PTR)IDC_BTN_OK, hInst, NULL);
+                                  S(208), btnY, S(66), btnH, hDlg, (HMENU)(INT_PTR)IDC_BTN_OK, hInst, NULL);
     HWND hBtnCan = CreateWindowExA(0, "BUTTON", "Cancel", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON | WS_TABSTOP,
-                                  S(260), btnY, S(66), btnH, hDlg, (HMENU)(INT_PTR)IDC_BTN_CANCEL, hInst, NULL);
+                                  S(280), btnY, S(66), btnH, hDlg, (HMENU)(INT_PTR)IDC_BTN_CANCEL, hInst, NULL);
 
     SendMessage(hBtnDef, WM_SETFONT, (WPARAM)g_hDlgFont, TRUE);
     SendMessage(hBtnOk, WM_SETFONT, (WPARAM)g_hDlgFont, TRUE);
@@ -722,6 +906,22 @@ bool ConfigManager::ShowSettingsDialog(HWND parentHwnd, float currentScale) {
         m_openUiHotkey = g_dlgData.openUiHk;
         m_quickApplyHotkey = g_dlgData.quickHk;
         m_disabled = g_dlgData.disabled;
+        m_cropMarksLayerOrder = g_dlgData.cropMarksLayerOrder;
+        m_crossMarksLayerOrder = g_dlgData.crossMarksLayerOrder;
+        m_barLength = g_dlgData.barLength;
+        m_barStandard = g_dlgData.barStandard;
+        m_barsOffset = g_dlgData.barsOffset;
+        m_crossOffset = g_dlgData.crossOffset;
+        m_docInfo = g_dlgData.docInfo;
+        if (m_activePresetIndex >= 0 && m_activePresetIndex < (int)m_presets.size()) {
+            m_presets[m_activePresetIndex].params.cropMarksLayerOrder = m_cropMarksLayerOrder;
+            m_presets[m_activePresetIndex].params.crossMarksLayerOrder = m_crossMarksLayerOrder;
+            m_presets[m_activePresetIndex].params.barLength = m_barLength;
+            m_presets[m_activePresetIndex].params.barStandard = m_barStandard;
+            m_presets[m_activePresetIndex].params.barsOffset = m_barsOffset;
+            m_presets[m_activePresetIndex].params.crossOffset = m_crossOffset;
+            m_presets[m_activePresetIndex].params.docInfo = m_docInfo;
+        }
         Save();
     }
 

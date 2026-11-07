@@ -31,6 +31,8 @@
 #include "AINotifier.h"
 #include "AILayer.h"
 #include "AIUser.h"
+#include "AITextFrame.h"
+#include "AIATEPaint.h"
 #include "SPInterf.h"
 #include "SPAccess.h"
 
@@ -60,6 +62,11 @@ extern "C" {
     extern AINotifierSuite*      sAINotifier;
     extern AILayerSuite*         sAILayer;
     extern AIUserSuite*          sAIUser;
+    extern AITextFrameSuite*     sAITextFrame;
+    extern AIATEPaintSuite*      sAIATEPaint;
+    extern ATE::TextRangeSuite*  sTextRange;
+    extern ATE::CharFeaturesSuite* sCharFeatures;
+    extern ATE::ApplicationPaintSuite* sApplicationPaint;
 }
 
 class AppContext {

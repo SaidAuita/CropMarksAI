@@ -80,10 +80,19 @@ if errorlevel 1 (
     exit /b 1
 )
 
+:: 5. Sync compiled plugin to root directory
+copy /y "%OUT_DIR%\CropMarksAI.aip" "%~dp0CropMarksAI.aip" >nul
+if errorlevel 1 (
+    echo [WARNING] Failed to copy CropMarksAI.aip to project root!
+) else (
+    echo [*] Synced CropMarksAI.aip to root directory.
+)
+
 echo.
 echo ================================================================================
 echo  [SUCCESS] Native Plugin Created:
 echo  %OUT_DIR%\CropMarksAI.aip
+echo  %~dp0CropMarksAI.aip
 echo ================================================================================
 echo.
 echo To install into Adobe Illustrator, copy 'CropMarksAI.aip' into:

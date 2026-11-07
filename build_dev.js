@@ -43,6 +43,10 @@ fs.copyFileSync(aipSource, path.join(STAGING_DIR, "CropMarksAI.aip"));
 const versionedAip = path.join(ROOT_DIR, "build", "x64", `CropMarksAI_v${version}.aip`);
 fs.copyFileSync(aipSource, versionedAip);
 
+// Also sync directly to project root
+fs.copyFileSync(aipSource, path.join(ROOT_DIR, "CropMarksAI.aip"));
+console.log(`[*] Synced fresh CropMarksAI.aip to root: ${path.join(ROOT_DIR, "CropMarksAI.aip")}`);
+
 // Copy installer scripts and documentation
 const filesToCopy = [
     "Install_Plugin.bat",

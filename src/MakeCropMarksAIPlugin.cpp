@@ -4,7 +4,7 @@
 #include <commctrl.h>
 #include <windowsx.h>
 
-#define PLUGIN_VERSION_STR "v1.11"
+#define PLUGIN_VERSION_STR "v1.23"
 
 #pragma comment(lib, "comctl32.lib")
 
@@ -63,6 +63,9 @@
 #define IDC_CMB_TARGET          2403
 #define IDC_CMB_GROUP           2404
 #define IDC_CHK_PERIMETER_ONLY  2405
+#define IDC_CHK_REG_MARKS       2406
+#define IDC_CHK_BARS_LONG       2407
+#define IDC_CHK_BARS_SHORT      2408
 
 // Actions & Links
 #define IDC_BTN_CREATE          2501
@@ -168,6 +171,12 @@ static void EnsureFontsForScale(HWND hwnd, float scale) {
         if (hLblPerim) SendMessage(hLblPerim, WM_SETFONT, (WPARAM)g_hUIFont, TRUE);
         HWND hLblWhite = GetDlgItem(hwnd, IDC_CHK_WHITE_CONTOUR + 1000);
         if (hLblWhite) SendMessage(hLblWhite, WM_SETFONT, (WPARAM)g_hUIFont, TRUE);
+        HWND hLblReg = GetDlgItem(hwnd, IDC_CHK_REG_MARKS + 1000);
+        if (hLblReg) SendMessage(hLblReg, WM_SETFONT, (WPARAM)g_hUIFont, TRUE);
+        HWND hLblBarL = GetDlgItem(hwnd, IDC_CHK_BARS_LONG + 1000);
+        if (hLblBarL) SendMessage(hLblBarL, WM_SETFONT, (WPARAM)g_hUIFont, TRUE);
+        HWND hLblBarS = GetDlgItem(hwnd, IDC_CHK_BARS_SHORT + 1000);
+        if (hLblBarS) SendMessage(hLblBarS, WM_SETFONT, (WPARAM)g_hUIFont, TRUE);
 
         const int allGeneralIds[] = {
             IDC_BTN_SETTINGS, IDC_BTN_PRESET_SAVE, IDC_BTN_DIR_ALL, IDC_BTN_DIR_CORNERS, IDC_BTN_DIR_NONE,
@@ -651,6 +660,9 @@ static void RelayoutPanel(HWND hwnd) {
     };
     moveCheckFull(IDC_CHK_PERIMETER_ONLY, S(296));
     moveCheckFull(IDC_CHK_WHITE_CONTOUR, S(318));
+    moveCheckFull(IDC_CHK_REG_MARKS, S(340));
+    moveCheckFull(IDC_CHK_BARS_LONG, S(362));
+    moveCheckFull(IDC_CHK_BARS_SHORT, S(384));
 
     // Row 8: Combos (Target, Bounds, Grouping)
     int comboLblW = S(54);
@@ -662,19 +674,19 @@ static void RelayoutPanel(HWND hwnd) {
     HWND hLblGroup  = GetDlgItem(hwnd, IDC_LBL_GROUP);
     HWND hCmbGroup  = GetDlgItem(hwnd, IDC_CMB_GROUP);
 
-    if (hLblTarget) SetWindowPos(hLblTarget, NULL, pad, S(343), comboLblW, S(18), SWP_NOZORDER);
+    if (hLblTarget) SetWindowPos(hLblTarget, NULL, pad, S(411), comboLblW, S(18), SWP_NOZORDER);
     if (hCmbTarget) {
-        SetWindowPos(hCmbTarget, NULL, pad + comboLblW + S(2), S(342), comboBodyW, dropH, SWP_NOZORDER);
+        SetWindowPos(hCmbTarget, NULL, pad + comboLblW + S(2), S(410), comboBodyW, dropH, SWP_NOZORDER);
         updateComboHeight(hCmbTarget);
     }
-    if (hLblBounds) SetWindowPos(hLblBounds, NULL, pad, S(367), comboLblW, S(18), SWP_NOZORDER);
+    if (hLblBounds) SetWindowPos(hLblBounds, NULL, pad, S(435), comboLblW, S(18), SWP_NOZORDER);
     if (hCmbBounds) {
-        SetWindowPos(hCmbBounds, NULL, pad + comboLblW + S(2), S(366), comboBodyW, dropH, SWP_NOZORDER);
+        SetWindowPos(hCmbBounds, NULL, pad + comboLblW + S(2), S(434), comboBodyW, dropH, SWP_NOZORDER);
         updateComboHeight(hCmbBounds);
     }
-    if (hLblGroup)  SetWindowPos(hLblGroup,  NULL, pad, S(391), comboLblW, S(18), SWP_NOZORDER);
+    if (hLblGroup)  SetWindowPos(hLblGroup,  NULL, pad, S(459), comboLblW, S(18), SWP_NOZORDER);
     if (hCmbGroup) {
-        SetWindowPos(hCmbGroup, NULL, pad + comboLblW + S(2), S(390), comboBodyW, dropH, SWP_NOZORDER);
+        SetWindowPos(hCmbGroup, NULL, pad + comboLblW + S(2), S(458), comboBodyW, dropH, SWP_NOZORDER);
         updateComboHeight(hCmbGroup);
     }
 
@@ -683,8 +695,8 @@ static void RelayoutPanel(HWND hwnd) {
     HWND hStatus = GetDlgItem(hwnd, IDC_STATIC_STATUS);
     int createH = S(26);
     int statusH = S(18);
-    int yStatus = S(418) + createH + S(4);
-    if (hBtnCreate) SetWindowPos(hBtnCreate, NULL, pad, S(418), contentW, createH, SWP_NOZORDER);
+    int yStatus = S(486) + createH + S(4);
+    if (hBtnCreate) SetWindowPos(hBtnCreate, NULL, pad, S(486), contentW, createH, SWP_NOZORDER);
     if (hStatus)    SetWindowPos(hStatus, NULL, pad, yStatus, contentW, statusH, SWP_NOZORDER);
 
     // Row 10: Footer links (clickable)
@@ -1330,6 +1342,11 @@ SPErr MakeCropMarksAIPlugin::CreateDockablePanel() {
     // Row 7: White Knockout Contour Checkbox
     makeCheckWithLabel("White knockout contour underlay (+1 pt)", 10, 392, 226, 20, IDC_CHK_WHITE_CONTOUR, g_hUIFont);
 
+    // Registration Marks & Color Bars
+    makeCheckWithLabel("Registration marks (crosshairs)", 10, 416, 226, 20, IDC_CHK_REG_MARKS, g_hUIFont);
+    makeCheckWithLabel("Color bars (long side)", 10, 440, 226, 20, IDC_CHK_BARS_LONG, g_hUIFont);
+    makeCheckWithLabel("Color bars (short side)", 10, 464, 226, 20, IDC_CHK_BARS_SHORT, g_hUIFont);
+
     // Row 8: Target, Bounds, Grouping
     makeStatic("Target:", 10, 420, 58, 20, IDC_LBL_TARGET);
     HWND hCmbTarget = makeCombo(70, 418, 164, 140, IDC_CMB_TARGET);
@@ -1422,6 +1439,9 @@ void MakeCropMarksAIPlugin::PopulateUIFromParams(const CropMarkParams& p) {
 
     CheckDlgButton(m_hPanelDlg, IDC_CHK_PERIMETER_ONLY, p.perimeterOnly ? BST_CHECKED : BST_UNCHECKED);
     CheckDlgButton(m_hPanelDlg, IDC_CHK_WHITE_CONTOUR, p.whiteContour ? BST_CHECKED : BST_UNCHECKED);
+    CheckDlgButton(m_hPanelDlg, IDC_CHK_REG_MARKS, p.regMarks ? BST_CHECKED : BST_UNCHECKED);
+    CheckDlgButton(m_hPanelDlg, IDC_CHK_BARS_LONG, p.colorBarsLong ? BST_CHECKED : BST_UNCHECKED);
+    CheckDlgButton(m_hPanelDlg, IDC_CHK_BARS_SHORT, p.colorBarsShort ? BST_CHECKED : BST_UNCHECKED);
     SendDlgItemMessage(m_hPanelDlg, IDC_CMB_TARGET, CB_SETCURSEL, (WPARAM)p.targetMode, 0);
     SendDlgItemMessage(m_hPanelDlg, IDC_CMB_BOUNDS, CB_SETCURSEL, (WPARAM)p.boundsMode, 0);
     SendDlgItemMessage(m_hPanelDlg, IDC_CMB_GROUP, CB_SETCURSEL, (WPARAM)p.groupMode, 0);
@@ -1469,9 +1489,20 @@ void MakeCropMarksAIPlugin::ReadParamsFromUI(CropMarkParams& p) {
 
     p.perimeterOnly = (IsDlgButtonChecked(m_hPanelDlg, IDC_CHK_PERIMETER_ONLY) == BST_CHECKED);
     p.whiteContour = (IsDlgButtonChecked(m_hPanelDlg, IDC_CHK_WHITE_CONTOUR) == BST_CHECKED);
+    p.regMarks = (IsDlgButtonChecked(m_hPanelDlg, IDC_CHK_REG_MARKS) == BST_CHECKED);
+    p.colorBarsLong = (IsDlgButtonChecked(m_hPanelDlg, IDC_CHK_BARS_LONG) == BST_CHECKED);
+    p.colorBarsShort = (IsDlgButtonChecked(m_hPanelDlg, IDC_CHK_BARS_SHORT) == BST_CHECKED);
     p.targetMode = (int)SendDlgItemMessage(m_hPanelDlg, IDC_CMB_TARGET, CB_GETCURSEL, 0, 0);
     p.boundsMode = (int)SendDlgItemMessage(m_hPanelDlg, IDC_CMB_BOUNDS, CB_GETCURSEL, 0, 0);
     p.groupMode = (int)SendDlgItemMessage(m_hPanelDlg, IDC_CMB_GROUP, CB_GETCURSEL, 0, 0);
+
+    p.barsOffset = ConfigManager::GetInstance().GetBarsOffset();
+    p.crossOffset = ConfigManager::GetInstance().GetCrossOffset();
+    p.cropMarksLayerOrder = ConfigManager::GetInstance().GetCropMarksLayerOrder();
+    p.crossMarksLayerOrder = ConfigManager::GetInstance().GetCrossMarksLayerOrder();
+    p.barLength = ConfigManager::GetInstance().GetBarLength();
+    p.barStandard = ConfigManager::GetInstance().GetBarStandard();
+    p.docInfo = ConfigManager::GetInstance().GetDocInfo();
 }
 
 void MakeCropMarksAIPlugin::ExecuteCreateMarks() {

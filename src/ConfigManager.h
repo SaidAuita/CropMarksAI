@@ -40,6 +40,23 @@ public:
     CropMarkParams GetActiveParams() const;
     void SetActiveParams(const CropMarkParams& params);
 
+    // Prepress settings
+    int GetCropMarksLayerOrder() const { return m_cropMarksLayerOrder; }
+    int GetCrossMarksLayerOrder() const { return m_crossMarksLayerOrder; }
+    int GetBarLength() const { return m_barLength; }
+    int GetBarStandard() const { return m_barStandard; }
+    double GetBarsOffset() const { return m_barsOffset; }
+    double GetCrossOffset() const { return m_crossOffset; }
+    bool GetDocInfo() const { return m_docInfo; }
+
+    void SetCropMarksLayerOrder(int order) { m_cropMarksLayerOrder = order; }
+    void SetCrossMarksLayerOrder(int order) { m_crossMarksLayerOrder = order; }
+    void SetBarLength(int length) { m_barLength = length; }
+    void SetBarStandard(int std) { m_barStandard = std; }
+    void SetBarsOffset(double off) { m_barsOffset = off; }
+    void SetCrossOffset(double off) { m_crossOffset = off; }
+    void SetDocInfo(bool enabled) { m_docInfo = enabled; }
+
     // Displays the modal Preferences / Hotkeys dialog
     bool ShowSettingsDialog(HWND parentHwnd, float currentScale = 0.0f);
     bool IsDialogActive() const { return m_dialogActive; }
@@ -63,6 +80,13 @@ private:
     bool m_disabled = false;
     int m_activePresetIndex = 0;
     bool m_dialogActive = false;
+    int m_cropMarksLayerOrder = kCropMarksAbovePatches;
+    int m_crossMarksLayerOrder = kCrossMarksAbovePatches;
+    int m_barLength = kColorBarShort;
+    int m_barStandard = kStandardISO12647_2;
+    double m_barsOffset = 0.0;
+    double m_crossOffset = 0.0;
+    bool m_docInfo = false;
 
     std::vector<PresetItem> m_presets;
 };

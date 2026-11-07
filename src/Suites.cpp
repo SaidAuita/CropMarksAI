@@ -27,6 +27,11 @@ extern "C" {
     AINotifierSuite*      sAINotifier = nullptr;
     AILayerSuite*         sAILayer = nullptr;
     AIUserSuite*          sAIUser = nullptr;
+    AITextFrameSuite*     sAITextFrame = nullptr;
+    AIATEPaintSuite*      sAIATEPaint = nullptr;
+    ATE::TextRangeSuite*  sTextRange = nullptr;
+    ATE::CharFeaturesSuite* sCharFeatures = nullptr;
+    ATE::ApplicationPaintSuite* sApplicationPaint = nullptr;
 }
 
 extern "C" void ShowPlatformAssert(const bool success, const char* message) {
@@ -63,6 +68,11 @@ static int32_t sAIUIThemeVer = 0;
 static int32_t sAINotifierVer = 0;
 static int32_t sAILayerVer = 0;
 static int32_t sAIUserVer = 0;
+static int32_t sAITextFrameVer = 0;
+static int32_t sAIATEPaintVer = 0;
+static int32_t sTextRangeVer = 0;
+static int32_t sCharFeaturesVer = 0;
+static int32_t sApplicationPaintVer = 0;
 
 void PluginLog(const char* fmt, ...) {
     char buf[1024];
@@ -144,9 +154,14 @@ SPErr AcquireSuites(SPBasicSuite* basic) {
     AcquireSuiteAuto(basic, kAINotifierSuite, kAINotifierSuiteVersion, (const void**)&sAINotifier, &sAINotifierVer);
     AcquireSuiteAuto(basic, kAILayerSuite, kAILayerSuiteVersion, (const void**)&sAILayer, &sAILayerVer);
     AcquireSuiteAuto(basic, kAIUserSuite, kAIUserSuiteVersion, (const void**)&sAIUser, &sAIUserVer);
+    AcquireSuiteAuto(basic, kAITextFrameSuite, kAITextFrameVersion, (const void**)&sAITextFrame, &sAITextFrameVer);
+    AcquireSuiteAuto(basic, kAIATEPaintSuite, kAIATEPaintVersion, (const void**)&sAIATEPaint, &sAIATEPaintVer);
+    AcquireSuiteAuto(basic, kTextRangeSuite, kTextRangeSuiteVersion, (const void**)&sTextRange, &sTextRangeVer);
+    AcquireSuiteAuto(basic, kCharFeaturesSuite, kCharFeaturesSuiteVersion, (const void**)&sCharFeatures, &sCharFeaturesVer);
+    AcquireSuiteAuto(basic, kApplicationPaintSuite, kApplicationPaintSuiteVersion, (const void**)&sApplicationPaint, &sApplicationPaintVer);
 
-    PluginLog("[AcquireSuites] Completed. sAIPanel=%p, sAIMenu=%p, sAIArt=%p, sAIPath=%p, sAIPathStyle=%p, sAICustomColor=%p, sAIUser=%p",
-              sAIPanel, sAIMenu, sAIArt, sAIPath, sAIPathStyle, sAICustomColor, sAIUser);
+    PluginLog("[AcquireSuites] Completed. sAIPanel=%p, sAIMenu=%p, sAIArt=%p, sAIPath=%p, sAIPathStyle=%p, sAICustomColor=%p, sAIUser=%p, sAITextFrame=%p",
+              sAIPanel, sAIMenu, sAIArt, sAIPath, sAIPathStyle, sAICustomColor, sAIUser, sAITextFrame);
     return kSPNoError;
 }
 
@@ -184,6 +199,11 @@ void ReleaseSuites(SPBasicSuite* basic) {
     RELEASE_AUTO(kAINotifierSuite, sAINotifierVer, sAINotifier);
     RELEASE_AUTO(kAILayerSuite, sAILayerVer, sAILayer);
     RELEASE_AUTO(kAIUserSuite, sAIUserVer, sAIUser);
+    RELEASE_AUTO(kAITextFrameSuite, sAITextFrameVer, sAITextFrame);
+    RELEASE_AUTO(kAIATEPaintSuite, sAIATEPaintVer, sAIATEPaint);
+    RELEASE_AUTO(kTextRangeSuite, sTextRangeVer, sTextRange);
+    RELEASE_AUTO(kCharFeaturesSuite, sCharFeaturesVer, sCharFeatures);
+    RELEASE_AUTO(kApplicationPaintSuite, sApplicationPaintVer, sApplicationPaint);
 
     sSPBasic = nullptr;
     PluginLog("[ReleaseSuites] All suites successfully released.");

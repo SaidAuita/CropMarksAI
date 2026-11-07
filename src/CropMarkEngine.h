@@ -31,6 +31,26 @@ enum TargetMode {
     kTargetArtboard = 2
 };
 
+enum CropMarkLayerOrder {
+    kCropMarksAbovePatches = 0, // Above color bars (default)
+    kCropMarksBelowPatches = 1  // Below color bars
+};
+
+enum CrossMarksLayerOrder {
+    kCrossMarksAbovePatches = 0, // Above color bars (default)
+    kCrossMarksBelowPatches = 1  // Below color bars
+};
+
+enum ColorBarLength {
+    kColorBarShort = 0, // Short
+    kColorBarLong = 1   // Long
+};
+
+enum ColorBarStandard {
+    kStandardISO12647_2 = 0, // ISO 12647-2 (Offset)
+    kStandardISO12647_7 = 1  // ISO 12647-7 (Digital Proof)
+};
+
 struct CropMarkDirections {
     // Top
     bool topLeft = true;
@@ -64,12 +84,22 @@ struct CropMarkParams {
     double bleedVer = 0.0;
     double bleedHor = 0.0;
     double strokeWidth = 0.25;
+    double barsOffset = 0.0;
+    double crossOffset = 0.0;
 
     int units = kUnitsMM;
     int strokeUnits = kUnitsPT;
 
     bool whiteContour = false;
     bool perimeterOnly = true;
+    bool regMarks = false;
+    bool colorBarsLong = false;
+    bool colorBarsShort = false;
+    int cropMarksLayerOrder = kCropMarksAbovePatches;
+    int crossMarksLayerOrder = kCrossMarksAbovePatches;
+    int barLength = kColorBarShort;
+    int barStandard = kStandardISO12647_2;
+    bool docInfo = false;
     int boundsMode = kBoundsGeometric;
     int groupMode = kGroupMarksOnly;
     int targetMode = kTargetEachObject;
