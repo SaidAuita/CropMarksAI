@@ -195,6 +195,13 @@ To uninstall, simply run **`Uninstall_Plugin.bat`** as Administrator.
 
 ---
 
+### 🙏 Acknowledgments
+
+Special thanks to **Sergey Anosov** for his foundational prepress scripting work and inspiration (`MakeCropMarksAI.jsx` and `MakeRegMarksAI.jsx`):
+* **Sergey Anosov DTP Scripts:** [sites.google.com/site/dtpscripting](https://sites.google.com/site/dtpscripting)
+
+---
+
 <a name="-русский"></a>
 ## 🇷🇺 Русский
 
@@ -360,9 +367,17 @@ C:\Program Files\Adobe\Adobe Illustrator [Версия]\Plug-ins\
 
 ---
 
+### 🙏 Благодарности (Acknowledgments)
+
+Выражаем особую благодарность **Сергею Аносову** за многолетний фундаментальный вклад в автоматизацию допечатной подготовки для Adobe Illustrator и вдохновение для создания плагина (скрипты `MakeCropMarksAI.jsx` и `MakeRegMarksAI.jsx`):
+* **Скрипты Сергея Аносова для DTP:** [sites.google.com/site/dtpscripting](https://sites.google.com/site/dtpscripting)
+
+---
+
 ## 📄 License & Author
 
 * **Author:** Said Auita ([GitHub: @SaidAuita](https://github.com/SaidAuita))
+* **Inspiration & Prepress Algorithms:** Sergey Anosov ([sites.google.com/site/dtpscripting](https://sites.google.com/site/dtpscripting))
 * **Project Repository:** [github.com/SaidAuita/CropMarksAI](https://github.com/SaidAuita/CropMarksAI)
 * **Prepress Automation Hub:** [ph-cu-s.com/tools](https://ph-cu-s.com/tools)
 * **License:** [MIT License](LICENSE)
