@@ -1,4 +1,5 @@
 #include "CropMarkEngine.h"
+#include "ConfigManager.h"
 #include <cmath>
 #include <vector>
 #include <chrono>
@@ -194,6 +195,340 @@ AIRealRect CropMarkEngine::GetObjectBounds(AIArtHandle art, int boundsMode) {
     return rc;
 }
 
+bool CropMarkEngine::IsTechnicalSpotName(const std::string& name) {
+    if (name.empty()) return false;
+
+    // Convert to lowercase using LCMapStringA (supports UTF-8 Cyrillic & Latin)
+    std::string lower = name;
+    std::vector<char> buf(name.length() * 2 + 16, 0);
+    int len = LCMapStringA(LOCALE_USER_DEFAULT, LCMAP_LOWERCASE, name.c_str(), (int)name.length(), buf.data(), (int)buf.size() - 1);
+    if (len > 0) {
+        buf[len] = '\0';
+        lower = std::string(buf.data());
+    } else {
+        for (char& ch : lower) ch = (char)tolower((unsigned char)ch);
+    }
+
+    // Technical keywords list (Prepress conventions: English & Russian)
+    static const char* techKeywords[] = {
+        // Cutting, Die, Creasing, Perforation
+        "cut", "die", "dieline", "knife", "crease", "fold", "score", "perfo", "cutter",
+        "штамп", "выруб", "нож", "биг", "перфо", "линия реза", "рез",
+        // Varnishes & Coatings
+        "varnish", "lack", "lak", "gloss", "matte", "mat", "uv", "лак", "уф", "глянц", "матовый",
+        // Foils, Stamping & Embossing
+        "foil", "stamp", "cliche", "тиснен", "клише", "фольг", "конгрев", "emboss", "deboss",
+        // Whites & Opaque Underlay
+        "white", "белил", "белый", "opaque",
+        // Adhesives & Technical Marks
+        "glue", "клей", "reg", "registr", "привод", "техн", "служеб", "service"
+    };
+
+    for (const char* kw : techKeywords) {
+        if (lower.find(kw) != std::string::npos) {
+            return true;
+        }
+    }
+    return false;
+}
+
+std::string CropMarkEngine::TransliterateCyrillic(const std::string& src) {
+    std::string out;
+    out.reserve(src.size() * 2);
+
+    for (size_t i = 0; i < src.size(); ) {
+        unsigned char c1 = (unsigned char)src[i];
+        if (c1 < 0x80) {
+            out.push_back((char)c1);
+            i++;
+            continue;
+        }
+
+        if (c1 == 0xD0 && i + 1 < src.size()) {
+            unsigned char c2 = (unsigned char)src[i + 1];
+            i += 2;
+            switch (c2) {
+                // Russian uppercase
+                case 0x81: out += "Yo"; break; // Ё
+                case 0x90: out += "A";  break; // А
+                case 0x91: out += "B";  break; // Б
+                case 0x92: out += "V";  break; // В
+                case 0x93: out += "G";  break; // Г
+                case 0x94: out += "D";  break; // Д
+                case 0x95: out += "E";  break; // Е
+                case 0x96: out += "Zh"; break; // Ж
+                case 0x97: out += "Z";  break; // З
+                case 0x98: out += "I";  break; // И
+                case 0x99: out += "Y";  break; // Й
+                case 0x9A: out += "K";  break; // К
+                case 0x9B: out += "L";  break; // Л
+                case 0x9C: out += "M";  break; // М
+                case 0x9D: out += "N";  break; // Н
+                case 0x9E: out += "O";  break; // О
+                case 0x9F: out += "P";  break; // П
+                case 0xA0: out += "R";  break; // Р
+                case 0xA1: out += "S";  break; // С
+                case 0xA2: out += "T";  break; // Т
+                case 0xA3: out += "U";  break; // У
+                case 0xA4: out += "F";  break; // Ф
+                case 0xA5: out += "Kh"; break; // Х
+                case 0xA6: out += "Ts"; break; // Ц
+                case 0xA7: out += "Ch"; break; // Ч
+                case 0xA8: out += "Sh"; break; // Ш
+                case 0xA9: out += "Shch"; break; // Щ
+                case 0xAA: break;              // Ъ (silent)
+                case 0xAB: out += "Y";  break; // Ы
+                case 0xAC: break;              // Ь (silent)
+                case 0xAD: out += "E";  break; // Э
+                case 0xAE: out += "Yu"; break; // Ю
+                case 0xAF: out += "Ya"; break; // Я
+
+                // Russian lowercase (first half)
+                case 0xB0: out += "a";  break; // а
+                case 0xB1: out += "b";  break; // б
+                case 0xB2: out += "v";  break; // в
+                case 0xB3: out += "g";  break; // г
+                case 0xB4: out += "d";  break; // д
+                case 0xB5: out += "e";  break; // е
+                case 0xB6: out += "zh"; break; // ж
+                case 0xB7: out += "z";  break; // з
+                case 0xB8: out += "i";  break; // и
+                case 0xB9: out += "y";  break; // й
+                case 0xBA: out += "k";  break; // к
+                case 0xBB: out += "l";  break; // л
+                case 0xBC: out += "m";  break; // м
+                case 0xBD: out += "n";  break; // н
+                case 0xBE: out += "o";  break; // о
+                case 0xBF: out += "p";  break; // п
+
+                // Ukrainian additions
+                case 0x84: out += "Ye"; break; // Є
+                case 0x86: out += "I";  break; // І
+                case 0x87: out += "Yi"; break; // Ї
+                default:
+                    out.push_back((char)c1);
+                    out.push_back((char)c2);
+                    break;
+            }
+            continue;
+        }
+
+        if (c1 == 0xD1 && i + 1 < src.size()) {
+            unsigned char c2 = (unsigned char)src[i + 1];
+            i += 2;
+            switch (c2) {
+                // Russian lowercase (second half)
+                case 0x80: out += "r";  break; // р
+                case 0x81: out += "s";  break; // с
+                case 0x82: out += "t";  break; // т
+                case 0x83: out += "u";  break; // у
+                case 0x84: out += "f";  break; // ф
+                case 0x85: out += "kh"; break; // х
+                case 0x86: out += "ts"; break; // ц
+                case 0x87: out += "ch"; break; // ч
+                case 0x88: out += "sh"; break; // ш
+                case 0x89: out += "shch"; break; // щ
+                case 0x8A: break;              // ъ (silent)
+                case 0x8B: out += "y";  break; // ы
+                case 0x8C: break;              // ь (silent)
+                case 0x8D: out += "e";  break; // э
+                case 0x8E: out += "yu"; break; // ю
+                case 0x8F: out += "ya"; break; // я
+                case 0x91: out += "yo"; break; // ё
+
+                // Ukrainian additions
+                case 0x94: out += "ye"; break; // є
+                case 0x96: out += "i";  break; // і
+                case 0x97: out += "yi"; break; // ї
+                default:
+                    out.push_back((char)c1);
+                    out.push_back((char)c2);
+                    break;
+            }
+            continue;
+        }
+
+        if (c1 == 0xD2 && i + 1 < src.size()) {
+            unsigned char c2 = (unsigned char)src[i + 1];
+            i += 2;
+            if (c2 == 0x90) { out += "G"; continue; } // Ґ
+            if (c2 == 0x91) { out += "g"; continue; } // ґ
+            out.push_back((char)c1);
+            out.push_back((char)c2);
+            continue;
+        }
+
+        // Other UTF-8 sequences pass through
+        out.push_back((char)c1);
+        i++;
+    }
+    return out;
+}
+
+std::vector<DocumentSpotColor> CropMarkEngine::ScanDocumentPantones() {
+    AppContext appContext;
+    std::vector<DocumentSpotColor> spots;
+    if (!sAIDocument || !sAISwatchList || !sAICustomColor) {
+        PluginLog("[ScanDocumentPantones] Suites missing: sAIDoc=%p, sAISwatch=%p, sAICustom=%p",
+                  sAIDocument, sAISwatchList, sAICustomColor);
+        return spots;
+    }
+
+    AIDocumentHandle doc = nullptr;
+    if (sAIDocument) {
+        sAIDocument->GetDocument(&doc);
+    }
+    if (!doc && sAIDocumentList) {
+        ai::int32 docCount = 0;
+        if (sAIDocumentList->Count(&docCount) == kNoErr && docCount > 0) {
+            sAIDocumentList->GetNthDocument(&doc, 0);
+        }
+    }
+
+    PluginLog("[ScanDocumentPantones] Scanning doc=%p...", doc);
+
+    std::vector<std::string> seenNames;
+
+    auto addSpotCandidate = [&](const std::string& name, AICustomColorHandle hColor, const AICustomColor& cc) {
+        if (name.empty()) return;
+        if ((cc.flag & kCustomRegistrationColor) != 0 ||
+            name == "[Registration]" || name == "Registration" ||
+            name == "[None]" || name == "None") {
+            return;
+        }
+
+        // Deduplicate by name (case-insensitive)
+        for (const auto& sn : seenNames) {
+            if (_stricmp(sn.c_str(), name.c_str()) == 0) return;
+        }
+        seenNames.push_back(name);
+
+        DocumentSpotColor spot;
+        spot.name = name;
+        spot.handle = hColor;
+
+        if (cc.kind == kCustomFourColor) {
+            spot.c = (float)cc.c.f.cyan;
+            spot.m = (float)cc.c.f.magenta;
+            spot.y = (float)cc.c.f.yellow;
+            spot.k = (float)cc.c.f.black;
+        } else if (sAICustomColor) {
+            AIColor nonGlobal;
+            std::memset(&nonGlobal, 0, sizeof(nonGlobal));
+            if (sAICustomColor->ConvertToNonGlobal(hColor, 0.0f, &nonGlobal) == kNoErr) {
+                if (nonGlobal.kind == kFourColor) {
+                    spot.c = (float)nonGlobal.c.f.cyan;
+                    spot.m = (float)nonGlobal.c.f.magenta;
+                    spot.y = (float)nonGlobal.c.f.yellow;
+                    spot.k = (float)nonGlobal.c.f.black;
+                } else if (nonGlobal.kind == kGrayColor) {
+                    spot.c = spot.m = spot.y = 0.0f;
+                    spot.k = (float)nonGlobal.c.g.gray;
+                } else {
+                    spot.c = 0.0f; spot.m = 0.0f; spot.y = 0.0f; spot.k = 1.0f;
+                }
+            } else {
+                spot.c = 0.0f; spot.m = 0.0f; spot.y = 0.0f; spot.k = 1.0f;
+            }
+        } else {
+            spot.c = 0.0f; spot.m = 0.0f; spot.y = 0.0f; spot.k = 1.0f;
+        }
+
+        spot.isTechnical = IsTechnicalSpotName(name);
+        spot.isSelected = !spot.isTechnical; // Technical spots excluded by default!
+
+        PluginLog("  [Spot Added] '%s' (c=%.2f m=%.2f y=%.2f k=%.2f, isTech=%d)",
+                  name.c_str(), spot.c, spot.m, spot.y, spot.k, spot.isTechnical ? 1 : 0);
+        spots.push_back(spot);
+    };
+
+    // 1. Enumerate via sAICustomColorSuite (all custom and spot colors in the document)
+    if (sAICustomColor) {
+        ai::int32 ccCount = 0;
+        AIErr err = sAICustomColor->CountCustomColors(&ccCount);
+        PluginLog("[ScanDocumentPantones] CountCustomColors err=%d count=%d", err, ccCount);
+        if (err == kNoErr) {
+            for (ai::int32 i = 0; i < ccCount; ++i) {
+                AICustomColorHandle hColor = nullptr;
+                if (sAICustomColor->GetNthCustomColor(i, &hColor) == kNoErr && hColor) {
+                    AICustomColor cc;
+                    if (sAICustomColor->GetCustomColor(hColor, &cc) == kNoErr) {
+                        ai::UnicodeString uName;
+                        sAICustomColor->GetCustomColorName(hColor, uName);
+                        std::string name = uName.as_UTF8();
+                        PluginLog("    CustomColor[%d]: '%s' flag=0x%04X kind=%d", i, name.c_str(), cc.flag, cc.kind);
+
+                        bool isSpot = (cc.flag & kCustomSpotColor) != 0;
+                        if (!isSpot) {
+                            std::string lowerName = name;
+                            for (char& ch : lowerName) ch = (char)tolower((unsigned char)ch);
+                            if (lowerName.find("pantone") != std::string::npos) isSpot = true;
+                        }
+
+                        if (isSpot) {
+                            addSpotCandidate(name, hColor, cc);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // 2. Enumerate via sAISwatchListSuite (document swatch panel)
+    if (sAISwatchList) {
+        AISwatchListRef swList = nullptr;
+        sAISwatchList->GetSwatchList(doc, &swList);
+        if (!swList) {
+            sAISwatchList->GetSwatchList(nullptr, &swList);
+        }
+        if (swList) {
+            ai::int32 swCount = sAISwatchList->CountSwatches(swList);
+            PluginLog("[ScanDocumentPantones] SwatchList CountSwatches = %d", swCount);
+            for (ai::int32 i = 0; i < swCount; ++i) {
+                AISwatchRef sw = sAISwatchList->GetNthSwatch(swList, i);
+                if (!sw) continue;
+
+                AIColor color;
+                if (sAISwatchList->GetAIColor(sw, &color) != kNoErr) continue;
+
+                ai::UnicodeString swName;
+                sAISwatchList->GetSwatchName(sw, swName);
+                std::string sName = swName.as_UTF8();
+
+                if (color.kind == kCustomColor && color.c.c.color && sAICustomColor) {
+                    AICustomColorHandle hColor = color.c.c.color;
+                    AICustomColor cc;
+                    if (sAICustomColor->GetCustomColor(hColor, &cc) == kNoErr) {
+                        ai::UnicodeString uName;
+                        sAICustomColor->GetCustomColorName(hColor, uName);
+                        std::string name = uName.as_UTF8();
+                        if (name.empty()) name = sName;
+
+                        PluginLog("    Swatch[%d]: '%s' flag=0x%04X kind=%d", i, name.c_str(), cc.flag, cc.kind);
+
+                        bool isSpot = (cc.flag & kCustomSpotColor) != 0;
+                        if (!isSpot) {
+                            std::string lowerName = name;
+                            for (char& ch : lowerName) ch = (char)tolower((unsigned char)ch);
+                            if (lowerName.find("pantone") != std::string::npos) isSpot = true;
+                        }
+
+                        if (isSpot) {
+                            addSpotCandidate(name, hColor, cc);
+                        }
+                    }
+                }
+            }
+        } else {
+            PluginLog("[ScanDocumentPantones] swList is null!");
+        }
+    }
+
+    PluginLog("[ScanDocumentPantones] Total spots found: %zu", spots.size());
+    ConfigManager::GetInstance().SetDocumentSpots(spots);
+    return spots;
+}
+
 struct LineDedupeEntry {
     double x1, y1, x2, y2;
     bool isReg;
@@ -365,23 +700,19 @@ static void CreateRegistrationCircle(AIArtHandle parentGroup, double cx, double 
     sAIPathStyle->SetPathStyle(pathArt, &style);
 }
 
-static void CreateRegistrationTarget(AIArtHandle parentGroup, double cx, double cy, bool whiteUnderlay, double strokeWidthPt) {
-    // User specs: circle diam = 4.0 mm (r = 2.0 mm), crosshair length = 6.0 mm (arm = 3.0 mm)
-    const double ptPerMm = 2.83464567;
-    const double rOuter = 2.0 * ptPerMm; // diam 4.0 mm
-    const double arm = 3.0 * ptPerMm;    // span 6.0 mm
-
-    // White underlay (+1.2 pt) ensures crosshair is clearly visible even over color bars
+static void CreateRegistrationTarget(AIArtHandle parentGroup, double cx, double cy,
+                                     bool whiteUnderlay, double strokeWidthPt,
+                                     double rOuterPt, double armPt) {
     if (whiteUnderlay) {
         double wStroke = strokeWidthPt + 1.2;
-        CreateRegistrationCircle(parentGroup, cx, cy, rOuter, false, wStroke);
-        CreateLineArt(parentGroup, cx - arm, cy, cx + arm, cy, false, wStroke);
-        CreateLineArt(parentGroup, cx, cy - arm, cx, cy + arm, false, wStroke);
+        CreateRegistrationCircle(parentGroup, cx, cy, rOuterPt, false, wStroke);
+        CreateLineArt(parentGroup, cx - armPt, cy, cx + armPt, cy, false, wStroke);
+        CreateLineArt(parentGroup, cx, cy - armPt, cx, cy + armPt, false, wStroke);
     }
 
-    CreateRegistrationCircle(parentGroup, cx, cy, rOuter, true, strokeWidthPt);
-    CreateLineArt(parentGroup, cx - arm, cy, cx + arm, cy, true, strokeWidthPt);
-    CreateLineArt(parentGroup, cx, cy - arm, cx, cy + arm, true, strokeWidthPt);
+    CreateRegistrationCircle(parentGroup, cx, cy, rOuterPt, true, strokeWidthPt);
+    CreateLineArt(parentGroup, cx - armPt, cy, cx + armPt, cy, true, strokeWidthPt);
+    CreateLineArt(parentGroup, cx, cy - armPt, cx, cy + armPt, true, strokeWidthPt);
 }
 
 struct ColorPatchDef {
@@ -513,64 +844,112 @@ static const ColorPatchDef g_iso7_long[] = {
     { 0.0f, 0.0f, 0.0f, 0.0f }     // Paper White
 };
 
+struct PatchItem {
+    bool isSpot;
+    AICustomColorHandle spotHandle;
+    float c, m, y, k;
+};
+
 static int CreateColorBarStrip(
     AIArtHandle parentGroup,
     double startX, double startY,
     bool isHorizontal,
-    double patchSizePt,
+    double patchWidthPt,
+    double patchHeightPt,
     double limitCoordPt,
+    int barMode,
     int standard,
-    int length
+    int length,
+    bool barCyan, bool barMagenta, bool barYellow, bool barBlack,
+    const std::vector<DocumentSpotColor>& selectedSpots
 ) {
-    const ColorPatchDef* patches = nullptr;
-    size_t numPatches = 0;
+    if (patchWidthPt <= 0.0 || patchHeightPt <= 0.0) return 0;
 
-    if (standard == kStandardISO12647_7) {
-        if (length == kColorBarLong) {
-            patches = g_iso7_long;
-            numPatches = sizeof(g_iso7_long) / sizeof(g_iso7_long[0]);
-        } else {
-            patches = g_iso7_short;
-            numPatches = sizeof(g_iso7_short) / sizeof(g_iso7_short[0]);
+    std::vector<PatchItem> patchSequence;
+
+    if (barMode == kColorBar100Solids) {
+        // 100% Solid Patches mode (CMYK + Pantones without halftones)
+        // 1. Process Primaries
+        if (barCyan)    patchSequence.push_back({ false, nullptr, 1.0f, 0.0f, 0.0f, 0.0f });
+        if (barMagenta) patchSequence.push_back({ false, nullptr, 0.0f, 1.0f, 0.0f, 0.0f });
+        if (barYellow)  patchSequence.push_back({ false, nullptr, 0.0f, 0.0f, 1.0f, 0.0f });
+        if (barBlack)   patchSequence.push_back({ false, nullptr, 0.0f, 0.0f, 0.0f, 1.0f });
+
+        // 2. Overprints (Binaries & 3-Color Gray)
+        if (barMagenta && barYellow) patchSequence.push_back({ false, nullptr, 0.0f, 1.0f, 1.0f, 0.0f }); // Red
+        if (barCyan && barYellow)    patchSequence.push_back({ false, nullptr, 1.0f, 0.0f, 1.0f, 0.0f }); // Green
+        if (barCyan && barMagenta)   patchSequence.push_back({ false, nullptr, 1.0f, 1.0f, 0.0f, 0.0f }); // Blue
+        if (barCyan && barMagenta && barYellow)
+                                     patchSequence.push_back({ false, nullptr, 1.0f, 1.0f, 1.0f, 0.0f }); // 3C Gray
+
+        // 3. Selected Pantones
+        for (const auto& sp : selectedSpots) {
+            if (sp.isSelected) {
+                patchSequence.push_back({ true, sp.handle, sp.c, sp.m, sp.y, sp.k });
+            }
+        }
+
+        // Fallback if none selected
+        if (patchSequence.empty()) {
+            patchSequence.push_back({ false, nullptr, 1.0f, 0.0f, 0.0f, 0.0f });
+            patchSequence.push_back({ false, nullptr, 0.0f, 1.0f, 0.0f, 0.0f });
+            patchSequence.push_back({ false, nullptr, 0.0f, 0.0f, 1.0f, 0.0f });
+            patchSequence.push_back({ false, nullptr, 0.0f, 0.0f, 0.0f, 1.0f });
         }
     } else {
-        // Default: kStandardISO12647_2
-        if (length == kColorBarLong) {
-            patches = g_iso2_long;
-            numPatches = sizeof(g_iso2_long) / sizeof(g_iso2_long[0]);
+        // ISO Standards mode
+        const ColorPatchDef* isoPatches = nullptr;
+        size_t isoCount = 0;
+        bool isIso7 = (barMode == kColorBarISO12647_7Mode || standard == kStandardISO12647_7);
+        if (isIso7) {
+            if (length == kColorBarLong) {
+                isoPatches = g_iso7_long;
+                isoCount = sizeof(g_iso7_long) / sizeof(g_iso7_long[0]);
+            } else {
+                isoPatches = g_iso7_short;
+                isoCount = sizeof(g_iso7_short) / sizeof(g_iso7_short[0]);
+            }
         } else {
-            patches = g_iso2_short;
-            numPatches = sizeof(g_iso2_short) / sizeof(g_iso2_short[0]);
+            if (length == kColorBarLong) {
+                isoPatches = g_iso2_long;
+                isoCount = sizeof(g_iso2_long) / sizeof(g_iso2_long[0]);
+            } else {
+                isoPatches = g_iso2_short;
+                isoCount = sizeof(g_iso2_short) / sizeof(g_iso2_short[0]);
+            }
+        }
+        for (size_t i = 0; i < isoCount; ++i) {
+            patchSequence.push_back({ false, nullptr, isoPatches[i].c, isoPatches[i].m, isoPatches[i].y, isoPatches[i].k });
         }
     }
 
-    if (numPatches == 0 || patchSizePt <= 0.0) {
-        return 0;
-    }
+    if (patchSequence.empty()) return 0;
 
     const double ptPerMm = 2.83464567;
-    const double gapPt = 4.0 * ptPerMm;
+    const double gapPt = 3.0 * ptPerMm;
     double currentOffset = 0.0;
     bool reachedLimit = false;
     int createdCount = 0;
 
+    // For horizontal bar: patch dimension along bar is patchWidthPt, perpendicular is patchHeightPt
+    // For vertical bar: patch dimension along bar is patchHeightPt, perpendicular is patchWidthPt
+    const double stepSizePt = isHorizontal ? patchWidthPt : patchHeightPt;
+    const double crossSizePt = isHorizontal ? patchHeightPt : patchWidthPt;
+
     while (!reachedLimit) {
-        for (size_t p = 0; p < numPatches; ++p) {
+        for (size_t p = 0; p < patchSequence.size(); ++p) {
             double px = isHorizontal ? (startX + currentOffset) : startX;
             double py = isHorizontal ? startY : (startY - currentOffset);
 
-            // Check if patch exceeds boundary:
-            // Horizontal: right edge of patch (px + patchSizePt) must not exceed limitCoordPt (X_max = last_crop - 3mm)
-            // Vertical: bottom edge of patch (py - patchSizePt) must not be below limitCoordPt (Y_min = last_crop + 3mm)
             if (isHorizontal) {
-                if (px + patchSizePt > limitCoordPt + 0.01) {
+                if (px + stepSizePt > limitCoordPt + 0.01) {
                     reachedLimit = true;
-                    break; // Stop drawing further patches
+                    break;
                 }
             } else {
-                if (py - patchSizePt < limitCoordPt - 0.01) {
+                if (py - stepSizePt < limitCoordPt - 0.01) {
                     reachedLimit = true;
-                    break; // Stop drawing further patches
+                    break;
                 }
             }
 
@@ -579,17 +958,21 @@ static int CreateColorBarStrip(
             if (!pathArt) continue;
 
             AIPathSegment segs[4];
-            segs[0].p.h = (AIReal)px; segs[0].p.v = (AIReal)(py - patchSizePt);
-            segs[0].in = segs[0].out = segs[0].p; segs[0].corner = true;
-
-            segs[1].p.h = (AIReal)px; segs[1].p.v = (AIReal)py;
-            segs[1].in = segs[1].out = segs[1].p; segs[1].corner = true;
-
-            segs[2].p.h = (AIReal)(px + patchSizePt); segs[2].p.v = (AIReal)py;
-            segs[2].in = segs[2].out = segs[2].p; segs[2].corner = true;
-
-            segs[3].p.h = (AIReal)(px + patchSizePt); segs[3].p.v = (AIReal)(py - patchSizePt);
-            segs[3].in = segs[3].out = segs[3].p; segs[3].corner = true;
+            if (isHorizontal) {
+                segs[0].p.h = (AIReal)px; segs[0].p.v = (AIReal)(py - crossSizePt);
+                segs[1].p.h = (AIReal)px; segs[1].p.v = (AIReal)py;
+                segs[2].p.h = (AIReal)(px + stepSizePt); segs[2].p.v = (AIReal)py;
+                segs[3].p.h = (AIReal)(px + stepSizePt); segs[3].p.v = (AIReal)(py - crossSizePt);
+            } else {
+                segs[0].p.h = (AIReal)px; segs[0].p.v = (AIReal)(py - stepSizePt);
+                segs[1].p.h = (AIReal)px; segs[1].p.v = (AIReal)py;
+                segs[2].p.h = (AIReal)(px + crossSizePt); segs[2].p.v = (AIReal)py;
+                segs[3].p.h = (AIReal)(px + crossSizePt); segs[3].p.v = (AIReal)(py - stepSizePt);
+            }
+            for (int k = 0; k < 4; ++k) {
+                segs[k].in = segs[k].out = segs[k].p;
+                segs[k].corner = true;
+            }
 
             sAIPath->SetPathSegments(pathArt, 0, 4, segs);
             sAIPath->SetPathClosed(pathArt, true);
@@ -600,23 +983,27 @@ static int CreateColorBarStrip(
 
             style.fillPaint = true;
             style.strokePaint = false;
-            style.fill.color.kind = kFourColor;
-            style.fill.color.c.f.cyan = patches[p].c;
-            style.fill.color.c.f.magenta = patches[p].m;
-            style.fill.color.c.f.yellow = patches[p].y;
-            style.fill.color.c.f.black = patches[p].k;
+
+            const auto& patch = patchSequence[p];
+            if (patch.isSpot && patch.spotHandle && sAICustomColor) {
+                style.fill.color.kind = kCustomColor;
+                style.fill.color.c.c.color = patch.spotHandle;
+                style.fill.color.c.c.tint = 0.0f; // 100% solid spot color ink
+            } else {
+                style.fill.color.kind = kFourColor;
+                style.fill.color.c.f.cyan = patch.c;
+                style.fill.color.c.f.magenta = patch.m;
+                style.fill.color.c.f.yellow = patch.y;
+                style.fill.color.c.f.black = patch.k;
+            }
 
             sAIPathStyle->SetPathStyle(pathArt, &style);
             createdCount++;
 
-            currentOffset += patchSizePt;
+            currentOffset += stepSizePt;
         }
 
-        if (reachedLimit) {
-            break;
-        }
-
-        // 4 mm gap between consecutive color bar strips
+        if (reachedLimit) break;
         currentOffset += gapPt;
     }
 
@@ -914,17 +1301,18 @@ CropMarkResult CropMarkEngine::CreateCropMarks(const CropMarkParams& params) {
 
     int totalMarksCreated = 0;
 
-    // Prepress Registration Targets and CMYK Color Bars helpers
+    // Prepress Registration Targets and CMYK / Spot Color Bars helpers
     auto addColorBars = [&](AIArtHandle grp, const AIRealRect& box) {
         if (!params.colorBarsLong && !params.colorBarsShort) return;
 
         const double w = box.right - box.left;
         const double h = box.top - box.bottom;
         const double ptPerMm = 2.83464567;
-        const double patchSize = 4.0 * ptPerMm;
+        const double patchWPt = CropMarkParams::UnitToPoints(params.patchWidth, params.units);
+        const double patchHPt = CropMarkParams::UnitToPoints(params.patchHeight, params.units);
         const double barsOff = CropMarkParams::UnitToPoints(params.barsOffset, params.units);
 
-        // Requirement 3:
+        // Prepress standard offsets:
         // Horizontal: start 3 mm to the right of leftmost crop mark, stop 3 mm before rightmost crop mark
         // Vertical: start 3 mm down from topmost crop mark, stop 3 mm before bottommost crop mark
         const double horizStartX = (box.left + bHor) + 3.0 * ptPerMm;
@@ -938,43 +1326,53 @@ CropMarkResult CropMarkEngine::CreateCropMarks(const CropMarkParams& params) {
         if (params.colorBarsLong) {
             if (isLandscape) {
                 // Long side in landscape: Top horizontal bar
-                double barStartY = box.top + oVer + barsOff + patchSize;
+                double barStartY = box.top + oVer + barsOff + patchHPt;
                 totalMarksCreated += CreateColorBarStrip(
-                    grp, horizStartX, barStartY, true, patchSize, horizLimitX,
-                    params.barStandard, params.barLength
+                    grp, horizStartX, barStartY, true, patchWPt, patchHPt, horizLimitX,
+                    params.barMode, params.barStandard, params.barLength,
+                    params.barCyan, params.barMagenta, params.barYellow, params.barBlack,
+                    params.selectedSpots
                 );
             } else {
                 // Long side in portrait: Left vertical bar
-                double barStartX = box.left - oHor - barsOff - patchSize;
+                double barStartX = box.left - oHor - barsOff - patchHPt;
                 totalMarksCreated += CreateColorBarStrip(
-                    grp, barStartX, vertStartY, false, patchSize, vertLimitY,
-                    params.barStandard, params.barLength
+                    grp, barStartX, vertStartY, false, patchWPt, patchHPt, vertLimitY,
+                    params.barMode, params.barStandard, params.barLength,
+                    params.barCyan, params.barMagenta, params.barYellow, params.barBlack,
+                    params.selectedSpots
                 );
             }
         }
 
         if (params.colorBarsShort) {
             if (isLandscape) {
-                // Short sides in landscape: ONLY Left vertical bar (Right side removed as requested)
-                double leftStartX = box.left - oHor - barsOff - patchSize;
+                // Short side in landscape: Left vertical bar
+                double leftStartX = box.left - oHor - barsOff - patchHPt;
                 totalMarksCreated += CreateColorBarStrip(
-                    grp, leftStartX, vertStartY, false, patchSize, vertLimitY,
-                    params.barStandard, params.barLength
+                    grp, leftStartX, vertStartY, false, patchWPt, patchHPt, vertLimitY,
+                    params.barMode, params.barStandard, params.barLength,
+                    params.barCyan, params.barMagenta, params.barYellow, params.barBlack,
+                    params.selectedSpots
                 );
             } else {
                 // Short sides in portrait: Top and Bottom horizontal bars
                 // Top side
-                double topStartY = box.top + oVer + barsOff + patchSize;
+                double topStartY = box.top + oVer + barsOff + patchHPt;
                 totalMarksCreated += CreateColorBarStrip(
-                    grp, horizStartX, topStartY, true, patchSize, horizLimitX,
-                    params.barStandard, params.barLength
+                    grp, horizStartX, topStartY, true, patchWPt, patchHPt, horizLimitX,
+                    params.barMode, params.barStandard, params.barLength,
+                    params.barCyan, params.barMagenta, params.barYellow, params.barBlack,
+                    params.selectedSpots
                 );
 
                 // Bottom side
                 double botStartY = box.bottom - oVer - barsOff;
                 totalMarksCreated += CreateColorBarStrip(
-                    grp, horizStartX, botStartY, true, patchSize, horizLimitX,
-                    params.barStandard, params.barLength
+                    grp, horizStartX, botStartY, true, patchWPt, patchHPt, horizLimitX,
+                    params.barMode, params.barStandard, params.barLength,
+                    params.barCyan, params.barMagenta, params.barYellow, params.barBlack,
+                    params.selectedSpots
                 );
             }
         }
@@ -984,10 +1382,10 @@ CropMarkResult CropMarkEngine::CreateCropMarks(const CropMarkParams& params) {
         if (!params.docInfo) return;
 
         const double ptPerMm = 2.83464567;
-        const double patchSize = 4.0 * ptPerMm;
+        const double patchHPt = CropMarkParams::UnitToPoints(params.patchHeight, params.units);
         const double barsOff = CropMarkParams::UnitToPoints(params.barsOffset, params.units);
         const double horizStartX = (box.left + bHor) + 3.0 * ptPerMm;
-        const double topBarStartY = box.top + oVer + barsOff + patchSize;
+        const double topBarStartY = box.top + oVer + barsOff + patchHPt;
         const double textAnchorY = topBarStartY + 1.0 * ptPerMm;
         const double textAnchorX = horizStartX;
 
@@ -1005,6 +1403,10 @@ CropMarkResult CropMarkEngine::CreateCropMarks(const CropMarkParams& params) {
             }
         }
 
+        if (params.docInfoTranslit) {
+            docName = TransliterateCyrillic(docName);
+        }
+
         time_t now = time(nullptr);
         struct tm t;
         localtime_s(&t, &now);
@@ -1012,8 +1414,8 @@ CropMarkResult CropMarkEngine::CreateCropMarks(const CropMarkParams& params) {
         strftime(timeBuf, sizeof(timeBuf), "%d.%m.%Y  %H:%M", &t);
         std::string infoText = docName + "  " + timeBuf;
 
-        PluginLog("[addDocInfo] Start: textAnchorX=%.2f, textAnchorY=%.2f, infoText='%s', sAITextFrame=%p",
-                  textAnchorX, textAnchorY, infoText.c_str(), sAITextFrame);
+        PluginLog("[addDocInfo] Start: textAnchorX=%.2f, textAnchorY=%.2f, infoText='%s', translit=%d, sAITextFrame=%p",
+                  textAnchorX, textAnchorY, infoText.c_str(), params.docInfoTranslit ? 1 : 0, sAITextFrame);
 
         if (sAITextFrame) {
             AIArtHandle textArt = nullptr;
@@ -1023,7 +1425,7 @@ CropMarkResult CropMarkEngine::CreateCropMarks(const CropMarkParams& params) {
             if (err == kNoErr && textArt) {
                 TextRangeRef textRange = nullptr;
                 if (sAITextFrame->GetATETextRange(textArt, &textRange) == kNoErr && textRange) {
-                    ai::UnicodeString uText(infoText);
+                    ai::UnicodeString uText(infoText, kAIUTF8CharacterEncoding);
                     if (sTextRange) {
                         sTextRange->InsertAfter_AsUnicode(textRange, uText.as_ASUnicode().c_str(), -1);
                         sTextRange->Release(textRange);
@@ -1068,30 +1470,85 @@ CropMarkResult CropMarkEngine::CreateCropMarks(const CropMarkParams& params) {
         if (!params.regMarks) return;
 
         const double ptPerMm = 2.83464567;
-        const double patchSize = 4.0 * ptPerMm;
-        const double crossOff = CropMarkParams::UnitToPoints(params.crossOffset, params.units);
+        const double rOuterPt = (params.regCircleDiam * 0.5) * ptPerMm;
+        const double armPt = (params.regCrossLength * 0.5) * ptPerMm;
+        const double markRadiusPt = (std::max)(rOuterPt, armPt);
+        const double regStrokePt = CropMarkParams::UnitToPoints(params.regStrokeWidth, params.regStrokeUnits);
 
-        // Top Center
-        double topCx = (box.left + box.right) * 0.5;
-        double topCy = box.top + oVer + crossOff + 0.5 * patchSize;
-        CreateRegistrationTarget(grp, topCx, topCy, true, strokeWidthPt);
+        const double offHorPt = CropMarkParams::UnitToPoints(params.regOffsetHor, params.units);
+        const double offVerPt = CropMarkParams::UnitToPoints(params.regOffsetVer, params.units);
 
-        // Bottom Center
-        double botCx = (box.left + box.right) * 0.5;
-        double botCy = box.bottom - oVer - crossOff - 0.5 * patchSize;
-        CreateRegistrationTarget(grp, botCx, botCy, true, strokeWidthPt);
+        const double midX = (box.left + box.right) * 0.5;
+        const double midY = (box.top + box.bottom) * 0.5;
 
-        // Left Center
-        double leftCx = box.left - oHor - crossOff - 0.5 * patchSize;
-        double leftCy = (box.top + box.bottom) * 0.5;
-        CreateRegistrationTarget(grp, leftCx, leftCy, true, strokeWidthPt);
+        const double topY = box.top + oVer + offVerPt + markRadiusPt;
+        const double botY = box.bottom - oVer - offVerPt - markRadiusPt;
+        const double leftX = box.left - oHor - offHorPt - markRadiusPt;
+        const double rightX = box.right + oHor + offHorPt + markRadiusPt;
 
-        // Right Center
-        double rightCx = box.right + oHor + crossOff + 0.5 * patchSize;
-        double rightCy = (box.top + box.bottom) * 0.5;
-        CreateRegistrationTarget(grp, rightCx, rightCy, true, strokeWidthPt);
+        struct RegPt { double x; double y; };
+        std::vector<RegPt> pts;
 
-        totalMarksCreated += 4;
+        if (params.regPositions == kRegPositionsCenters) {
+            pts.push_back({ midX, topY });
+            pts.push_back({ midX, botY });
+            pts.push_back({ leftX, midY });
+            pts.push_back({ rightX, midY });
+        } else if (params.regPositions == kRegPositionsCorners) {
+            pts.push_back({ leftX, topY });
+            pts.push_back({ rightX, topY });
+            pts.push_back({ leftX, botY });
+            pts.push_back({ rightX, botY });
+        } else if (params.regPositions == kRegPositionsCentersCorners) {
+            pts.push_back({ midX, topY });
+            pts.push_back({ midX, botY });
+            pts.push_back({ leftX, midY });
+            pts.push_back({ rightX, midY });
+            pts.push_back({ leftX, topY });
+            pts.push_back({ rightX, topY });
+            pts.push_back({ leftX, botY });
+            pts.push_back({ rightX, botY });
+        } else if (params.regPositions == kRegPositionsAll16) {
+            // Top 5
+            pts.push_back({ leftX, topY });
+            pts.push_back({ box.left + markRadiusPt, topY });
+            pts.push_back({ midX, topY });
+            pts.push_back({ box.right - markRadiusPt, topY });
+            pts.push_back({ rightX, topY });
+
+            // Bottom 5
+            pts.push_back({ leftX, botY });
+            pts.push_back({ box.left + markRadiusPt, botY });
+            pts.push_back({ midX, botY });
+            pts.push_back({ box.right - markRadiusPt, botY });
+            pts.push_back({ rightX, botY });
+
+            // Left 3
+            pts.push_back({ leftX, box.top - markRadiusPt });
+            pts.push_back({ leftX, midY });
+            pts.push_back({ leftX, box.bottom + markRadiusPt });
+
+            // Right 3
+            pts.push_back({ rightX, box.top - markRadiusPt });
+            pts.push_back({ rightX, midY });
+            pts.push_back({ rightX, box.bottom + markRadiusPt });
+        }
+
+        std::vector<RegPt> created;
+        for (const auto& p : pts) {
+            bool dup = false;
+            for (const auto& c : created) {
+                if (std::abs(c.x - p.x) < 0.1 && std::abs(c.y - p.y) < 0.1) {
+                    dup = true;
+                    break;
+                }
+            }
+            if (!dup) {
+                CreateRegistrationTarget(grp, p.x, p.y, params.regWhiteUnderlay, regStrokePt, rOuterPt, armPt);
+                created.push_back(p);
+                totalMarksCreated++;
+            }
+        }
     };
 
     if (params.targetMode == kTargetArtboard) {

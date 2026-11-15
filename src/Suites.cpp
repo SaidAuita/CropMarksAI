@@ -32,6 +32,7 @@ extern "C" {
     ATE::TextRangeSuite*  sTextRange = nullptr;
     ATE::CharFeaturesSuite* sCharFeatures = nullptr;
     ATE::ApplicationPaintSuite* sApplicationPaint = nullptr;
+    SPPluginRef           gPluginRef = nullptr;
 }
 
 extern "C" void ShowPlatformAssert(const bool success, const char* message) {
@@ -86,7 +87,7 @@ void PluginLog(const char* fmt, ...) {
     char tempPath[MAX_PATH];
     if (GetTempPathA(sizeof(tempPath), tempPath)) {
         char logFile[MAX_PATH];
-        snprintf(logFile, sizeof(logFile), "%sMakeCropMarksAI_Native.log", tempPath);
+        snprintf(logFile, sizeof(logFile), "%sCropMarksAI_Native.log", tempPath);
         FILE* fp = nullptr;
         if (fopen_s(&fp, logFile, "a") == 0 && fp) {
             fputs(buf, fp);

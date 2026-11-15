@@ -90,9 +90,11 @@ if "%USER_CHOICE%"=="0" (
     for /L %%I in (1,1,%TOTAL_FOUND%) do (
         set "TARGET_FILE=!AI_DIR_%%I!\Plug-ins\CropMarksAI.aip"
         set "LEGACY_FILE=!AI_DIR_%%I!\Plug-ins\MakeCropMarksAI.aip"
+        set "PLUS_FILE=!AI_DIR_%%I!\Plug-ins\CropMarksAI_plus.aip"
         echo [*] Removing from: !AI_NAME_%%I!\Plug-ins\
         if exist "!TARGET_FILE!" del /f /q "!TARGET_FILE!" >nul 2>&1
         if exist "!LEGACY_FILE!" del /f /q "!LEGACY_FILE!" >nul 2>&1
+        if exist "!PLUS_FILE!" del /f /q "!PLUS_FILE!" >nul 2>&1
         if not exist "!TARGET_FILE!" (
             echo  [OK] Successfully removed from: !AI_NAME_%%I!\Plug-ins\
             set /a REMOVED_COUNT+=1
@@ -103,10 +105,11 @@ if "%USER_CHOICE%"=="0" (
 ) else (
     set "TARGET_FILE=!AI_DIR_%USER_CHOICE%!\Plug-ins\CropMarksAI.aip"
     set "LEGACY_FILE=!AI_DIR_%USER_CHOICE%!\Plug-ins\MakeCropMarksAI.aip"
-    set "TARGET_NAME=!AI_NAME_%USER_CHOICE%!"
+    set "PLUS_FILE=!AI_DIR_%USER_CHOICE%!\Plug-ins\CropMarksAI_plus.aip"
     echo [*] Removing from: !TARGET_NAME!\Plug-ins\
     if exist "!TARGET_FILE!" del /f /q "!TARGET_FILE!" >nul 2>&1
     if exist "!LEGACY_FILE!" del /f /q "!LEGACY_FILE!" >nul 2>&1
+    if exist "!PLUS_FILE!" del /f /q "!PLUS_FILE!" >nul 2>&1
     if not exist "!TARGET_FILE!" (
         echo  [OK] Successfully removed from: !TARGET_NAME!\Plug-ins\
         set /a REMOVED_COUNT+=1

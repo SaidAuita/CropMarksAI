@@ -67,13 +67,14 @@ extern "C" {
     extern ATE::TextRangeSuite*  sTextRange;
     extern ATE::CharFeaturesSuite* sCharFeatures;
     extern ATE::ApplicationPaintSuite* sApplicationPaint;
+    extern SPPluginRef           gPluginRef;
 }
 
 class AppContext {
 private:
     AIAppContextHandle m_context;
 public:
-    explicit AppContext(SPPluginRef pluginRef) : m_context(nullptr) {
+    explicit AppContext(SPPluginRef pluginRef = gPluginRef) : m_context(nullptr) {
         if (sAIAppContext && pluginRef) {
             sAIAppContext->PushAppContext(pluginRef, &m_context);
         }

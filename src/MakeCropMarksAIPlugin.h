@@ -7,6 +7,12 @@
 #include "CropMarkEngine.h"
 #include "ConfigManager.h"
 
+enum PanelTab {
+    kTabMarks = 0,
+    kTabPantones = 1,
+    kTabSettings = 2
+};
+
 class MakeCropMarksAIPlugin {
 public:
     static MakeCropMarksAIPlugin& GetInstance();
@@ -17,7 +23,10 @@ public:
     SPErr UpdateMenuItem(void* message);
     SPErr Notify(void* message);
 
-    void SetPluginRef(SPPluginRef pluginRef) { m_pluginRef = pluginRef; }
+    void SetPluginRef(SPPluginRef pluginRef) {
+        m_pluginRef = pluginRef;
+        gPluginRef = pluginRef;
+    }
     SPPluginRef GetPluginRef() const { return m_pluginRef; }
     HWND GetPanelHWND() const { return m_hPanelDlg; }
     void OnVisibilityChanged(bool isVisible);
@@ -28,6 +37,16 @@ public:
     void ExecuteCreateMarks();
     void ExecuteQuickApply();
     void TogglePanel();
+
+    // Tab Management
+    void SwitchTab(int tabIndex);
+    void UpdateTabVisibility();
+    void PopulatePantonesList();
+    void UpdateSpotsFromList();
+    static bool IsPopulatingSpots() { return s_isPopulatingSpots; }
+    void ReadSettingsFromUI();
+    void PopulateSettingsToUI();
+    int GetCurrentTab() const { return m_currentTab; }
 
 private:
     MakeCropMarksAIPlugin();
@@ -48,6 +67,9 @@ private:
     AIMenuItemHandle  m_hMenuQuickApply;
     AIMenuItemHandle  m_hMenuSettings;
     AIMenuItemHandle  m_hMenuAbout;
+
+    int               m_currentTab = kTabMarks;
+    static bool       s_isPopulatingSpots;
 };
 
 #endif // MAKE_CROP_MARKS_AI_PLUGIN_H

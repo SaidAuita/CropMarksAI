@@ -51,6 +51,30 @@ enum ColorBarStandard {
     kStandardISO12647_7 = 1  // ISO 12647-7 (Digital Proof)
 };
 
+enum ColorBarMode {
+    kColorBar100Solids = 0,  // 100% Solids (CMYK + Pantones, without halftones)
+    kColorBarISO12647_2Mode = 1, // ISO 12647-2
+    kColorBarISO12647_7Mode = 2  // ISO 12647-7
+};
+
+enum RegMarkPositions {
+    kRegPositionsCenters = 0,        // 4 marks: Top, Bottom, Left, Right centers
+    kRegPositionsCorners = 1,        // 4 marks: TL, TR, BL, BR
+    kRegPositionsCentersCorners = 2, // 8 marks: Centers + Corners
+    kRegPositionsAll16 = 3           // 16 marks: Anosov perimeter (5 top, 5 bottom, 3 left, 3 right)
+};
+
+struct DocumentSpotColor {
+    std::string name;
+    AICustomColorHandle handle = nullptr;
+    float c = 0.0f;
+    float m = 0.0f;
+    float y = 0.0f;
+    float k = 0.0f;
+    bool isSelected = true;
+    bool isTechnical = false;
+};
+
 struct CropMarkDirections {
     // Top
     bool topLeft = true;
@@ -100,9 +124,30 @@ struct CropMarkParams {
     int barLength = kColorBarShort;
     int barStandard = kStandardISO12647_2;
     bool docInfo = false;
+    bool docInfoTranslit = false;
     int boundsMode = kBoundsGeometric;
     int groupMode = kGroupMarksOnly;
     int targetMode = kTargetEachObject;
+
+    // Registration Marks Advanced Adjustments (Anosov model)
+    double regCircleDiam = 4.0;     // mm
+    double regCrossLength = 6.0;    // mm
+    double regStrokeWidth = 0.10;   // in regStrokeUnits
+    int regStrokeUnits = kUnitsMM;
+    double regOffsetHor = 2.0;      // in units
+    double regOffsetVer = 2.0;      // in units
+    int regPositions = kRegPositionsCenters;
+    bool regWhiteUnderlay = true;
+
+    // Color Bars Advanced Adjustments (100% Solids mode + Spot selection)
+    int barMode = kColorBar100Solids;
+    double patchWidth = 5.0;        // in units (default mm)
+    double patchHeight = 5.0;       // in units (default mm)
+    bool barCyan = true;
+    bool barMagenta = true;
+    bool barYellow = true;
+    bool barBlack = true;
+    std::vector<DocumentSpotColor> selectedSpots;
 
     // Conversion helpers
     static double UnitToPoints(double val, int u);
@@ -137,6 +182,11 @@ public:
     static bool HasSelectedAncestor(AIArtHandle art, const std::vector<AIArtHandle>& allMatches);
     static bool IsCropMarksGroup(AIArtHandle art);
     static void RemoveExistingCropMarks(AIArtHandle art);
+
+    // Document Pantone / Spot Color Scanning & Prepress Filtering
+    static bool IsTechnicalSpotName(const std::string& name);
+    static std::vector<DocumentSpotColor> ScanDocumentPantones();
+    static std::string TransliterateCyrillic(const std::string& src);
 
 private:
     CropMarkEngine() = default;

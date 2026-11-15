@@ -172,6 +172,8 @@ if "%USER_CHOICE%"=="0" (
         if not exist "!TARGET_DIR!" mkdir "!TARGET_DIR!" >nul 2>&1
         echo [*] Copying to: !AI_NAME_%%I!\Plug-ins\
         if exist "!TARGET_DIR!\MakeCropMarksAI.aip" del /f /q "!TARGET_DIR!\MakeCropMarksAI.aip" >nul 2>&1
+    if exist "!TARGET_DIR!\CropMarksAI_plus.aip" del /f /q "!TARGET_DIR!\CropMarksAI_plus.aip" >nul 2>&1
+        if exist "!TARGET_DIR!\CropMarksAI_plus.aip" del /f /q "!TARGET_DIR!\CropMarksAI_plus.aip" >nul 2>&1
         copy /y "%AIP_SRC%" "!TARGET_DIR!\CropMarksAI.aip" >nul
         if errorlevel 1 (
             echo  [-] ERROR: Failed to copy to !AI_NAME_%%I!
@@ -186,6 +188,7 @@ if "%USER_CHOICE%"=="0" (
     if not exist "!TARGET_DIR!" mkdir "!TARGET_DIR!" >nul 2>&1
     echo [*] Copying to: !TARGET_NAME!\Plug-ins\
     if exist "!TARGET_DIR!\MakeCropMarksAI.aip" del /f /q "!TARGET_DIR!\MakeCropMarksAI.aip" >nul 2>&1
+    if exist "!TARGET_DIR!\CropMarksAI_plus.aip" del /f /q "!TARGET_DIR!\CropMarksAI_plus.aip" >nul 2>&1
     copy /y "%AIP_SRC%" "!TARGET_DIR!\CropMarksAI.aip" >nul
     if errorlevel 1 (
         echo  [-] ERROR: Failed to copy to !TARGET_NAME!
