@@ -369,7 +369,7 @@ C:\Program Files\Adobe\Adobe Illustrator [Версия]\Plug-ins\
 
 ### 🙏 Благодарности (Acknowledgments)
 
-Выражаем особую благодарность **Сергею Аносову** за многолетний фундаментальный вклад в автоматизацию допечатной подготовки для Adobe Illustrator и вдохновение для создания плагина (скрипты `MakeCropMarksAI.jsx` и `MakeRegMarksAI.jsx`):
+Выражаю особую благодарность **Сергею Аносову** за многолетний фундаментальный вклад в автоматизацию допечатной подготовки для Adobe Illustrator и вдохновение для создания плагина (скрипты `MakeCropMarksAI.jsx` и `MakeRegMarksAI.jsx`):
 * **Скрипты Сергея Аносова для DTP:** [sites.google.com/site/dtpscripting](https://sites.google.com/site/dtpscripting)
 
 ---
