@@ -65,53 +65,49 @@
    - Up to 100× faster than traditional ExtendScript / JSX scripts on complex layouts with hundreds of objects.
 
 2. **Unified 3-Tab Palette Architecture**:
-   - **`[ Marks ]` Tab**: 12 independent crop directions, geometric settings (Length, Offset, Bleed, Stroke Width) with unit selector (mm, pt, in, px), Only perimeter mode, white knockout underlay, quick presets, and instant `CREATE CROP MARKS` action.
+   - **`[ Marks ]` Tab**: 12 independent crop directions, geometric settings (Length, Offset, Bleed, Stroke Width) with unit selector (mm, pt, in, px), Target selector (Each object / Entire selection / Artboard), Bounds mode, Grouping mode, Layer selector, Only perimeter mode, white knockout underlay, quick presets, and instant `CREATE CROP MARKS` action.
    - **`[ Pantones ]` Tab**: Process CMYK toggles (C, M, Y, K) and live document spot/Pantone scanning with smart technical ink filtering.
-   - **`[ Settings ]` Tab**: Color bar modes & geometry, Anosov registration marks configuration, prepress document info with Cyrillic transliteration, and default hotkeys.
+   - **`[ Settings ]` Tab**: Color bar modes & geometry (including customizable repeat gap), Anosov registration marks configuration, prepress document info with Cyrillic transliteration, export/import configuration, and default hotkeys.
 
 3. **Spot / Pantone Scanning & Smart Technical Ink Filter**:
    - **Automatic Swatch Inspection**: Scans all custom and spot inks directly from document swatches via `sAISwatchList` and `sAICustomColor`.
    - **Intelligent Technical Color Filter (`IsTechnicalSpotName`)**: Automatically detects and excludes non-printing and finishing inks (die-cuts, knives, creases, UV varnishes, foils, embossing, white ink underlays, adhesives — e.g. *штамп, вырубка, нож, биг, лак, уф, фольга, клише, белила, клей, die, cut, crease, varnish, foil, white*).
    - **Interactive Selection**: Checklist of all detected spots with live patch swatches, one-click `Rescan`, `All`, `None`, and `Filter` buttons, and `APPLY PANTONES`.
 
-4. **Registration Marks (S. Anosov Prepress Model)**:
-   - Precision prepress targets with dual concentric rings and crosshairs.
-   - **Customizable Dimensions**: Configurable circle diameter (`Diam`, default 4.0 mm) and arm length (`Arm`, default 6.0 mm).
-   - **Independent Line Width & Units**: Stroke width (default 0.10 mm) with unit selector (mm / pt / in / px).
-   - **Independent Offsets**: Separate horizontal and vertical offsets (`regOffsetHor`, `regOffsetVer`).
-   - **4 Placement Schemes**:
-     - `Centers (4)`: Centered on top, bottom, left, right.
-     - `Corners (4)`: Positioned at 4 sheet corners.
-     - `Centers + Corners (8)`: 8 marks across all centers and corners.
-     - `All 16 Directions (16)`: Full 16-point Anosov perimeter scheme (5 top, 5 bottom, 3 left, 3 right).
-   - **White Knockout Contour Underlay (`+1.2 pt`)**: White background outline for maximum visibility on rich black and dark backgrounds.
-   - **Z-Order Layer Ordering**: Independent choice to render crosshairs *Above* or *Below* crop marks and color bars.
+4. **Entire Selection Mode (1 Box) & Inward Packaging Die Cuts**:
+   - **Entire Selection (1 Box)**: Single unified bounding box mode for complex die-cut stamps, packaging, and carton layouts composed of hundreds of individual vector paths. Generates clean corner marks strictly around the outer boundary of the entire selection without any unwanted interior marks.
+   - **Inward Corner Crop Marks (Anosov Die Model)**: Supports negative lengths (`Length V/H < 0`, e.g. `-6 mm`) with zero offset (`Offset = 0 mm`) to draw corner cuts directed inward into die stamps.
 
-5. **Advanced Color Bars & Standards**:
-   - **100% Solids Mode (`CMYK + Pantones`)**: Pure 100% solid patches without halftones (Cyan, Magenta, Yellow, Black, binary overprints Red, Green, Blue, 3C grey, plus selected document Pantones).
-   - **ISO 12647-2 (Commercial Offset)**: Complete gradation control, midtone TVI patches, and grey balance.
-   - **ISO 12647-7 (Digital Proofing)**: Fogra Media Wedge CMYK subset with tints, overprints, and near-neutrals.
-   - **Custom Patch Dimensions**: Width × Height (default 5.0 × 5.0 mm).
-   - **Continuous Repetition**: Series repeats seamlessly across sheets with a 4 mm technological gap (`strip ➔ 4 mm gap ➔ strip...`).
+5. **Hierarchical 3-Level Grouping (`Cuts`, `Registration Marks`, `Color Bars`)**:
+   - Internal structured nesting within the main `"Crop Marks"` container group: cuts are gathered into a `"Cuts"` subgroup, registration marks into `"Registration Marks"`, and color bars with document info into `"Color Bars"`.
+   - Allows users to easily select and move just the color bar or just the registration crosshairs using Illustrator's Group Selection Tool (Direct Selection Tool / White Arrow with plus) without breaking the overall group.
+
+6. **Target Layer Selector & Auto-Creation**:
+   - Choose where to place the marks: `[ Current Layer ]`, automatically create a dedicated prepress layer `[ New: Crop Marks ]`, or target any existing document layer from a drop-down list.
+
+7. **Export & Import Settings (JSON)**:
+   - Save and restore presets and settings to external JSON files (`Export...` / `Import...` buttons in the Settings tab). Enables seamless backup, team sharing, and effortless migration of user preferences across plugin updates or different machines.
+
+8. **Advanced Color Bars & 100% Primaries Mode**:
+   - **100% Primaries Only (`CMYK + Spots, no overprints`)**: Clean 100% solid patches without halftones or binary/tertiary overprints (Red, Green, Blue, 3C gray).
+   - **100% Solids Mode (`CMYK + Pantones`)**: Pure 100% solid patches with binary overprints (Red, Green, Blue, 3C grey) and document Pantones.
+   - **ISO 12647-2 (Commercial Offset)** & **ISO 12647-7 (Digital Proofing)** standards.
+   - **Customizable Repeat Gap (`Gap`, default 0.0 mm)**: Distance between repeated color bar sequences can be freely configured (0 mm for continuous strips or any custom offset).
    - **Safety Boundary**: Starts +3 mm from first crop mark, stops -3 mm before the last crop mark.
-   - **Flexible Placement & Z-Order**: Independently toggle Long side (top) and Short side (left), with layer ordering *Above* or *Below* crop marks.
 
-6. **Prepress Document Info Banner with Cyrillic Transliteration**:
-   - Automatically prints document filename, date, and timestamp in 5 pt Registration color positioned 1 mm above the top color bar.
-   - **Transliterate Cyrillic to Latin (`[x] Transliterate Cyrillic to Latin`)**: Automatically transliterates Cyrillic document names into clean Latin characters, eliminating RIP, PostScript, and platesetter font encoding glitches.
+9. **Registration Marks (S. Anosov Prepress Model)**:
+   - Precision prepress targets with dual concentric rings and crosshairs. Configurable circle diameter, arm length, line width (mm/pt/in/px), separate H/V offsets, and 4 placement schemes (Centers, Corners, Centers+Corners, and All 16 Directions). Includes white knockout underlay (+1.2 pt) and Z-order control.
 
-7. **Only Perimeter Mode & Spatial Auto-Clustering**:
-   - **Only Perimeter (No Inner Marks)**: Detects grouped layouts (cards, labels, stickers) and places marks strictly along the outer bounding perimeter, eliminating unwanted internal cuts.
-   - **Multi-Artboard Spatial Clustering**: Automatically isolates imposition grids across multiple artboards into dedicated groups without cross-artboard interference.
-   - **Line Deduplication**: Positional cache eliminates duplicate overlapping lines with a precision tolerance of `0.002 pt`.
-   - **Clipping Mask & Guide Awareness**: Binds marks to visible artwork bounds (`kArtIsClipMask`) while ignoring non-printing guides.
-   - **Guaranteed Send to Back**: All marks are gathered into a single `"Crop Marks"` layer group positioned strictly below all artwork.
-   - **One-Step Undo**: Fully integrated into Illustrator's native history stack (`sAIUndo->SetUndoTextUS`).
+10. **Prepress Document Info Banner with Cyrillic Transliteration**:
+    - Automatically prints document filename, date, and timestamp in 5 pt Registration color positioned 1 mm above the top color bar.
+    - **Transliterate Cyrillic to Latin (`[x] Transliterate Cyrillic to Latin`)**: Automatically transliterates Cyrillic document names into clean Latin characters, eliminating RIP, PostScript, and platesetter font encoding glitches.
 
-8. **8 Quick Presets & Synchronized Hotkeys**:
-   - **8 Fast Preset Slots (`[1]` .. `[8]`)** with editable custom names (e.g. `Card 90x50`, `Flyer A4 Bleed 2mm`, `Packaging 6/4`). Stored persistently in `%APPDATA%\MakeCropMarksAI\presets.json`.
-   - **Full Hotkey Synchronization**: Quick Apply (`Shift + F4` / `F4`) automatically synchronizes active UI parameters, checkboxes (crosshairs, color bars), and preset parameters.
-   - **Keyboard Navigation**: `Tab` / `Shift + Tab` cycle focus; `Enter` generates marks from numeric fields or saves preset from name field.
+11. **Only Perimeter Mode & Spatial Auto-Clustering**:
+    - **Only Perimeter (No Inner Marks)**: Detects grouped layouts (cards, labels, stickers) and places marks strictly along the outer bounding perimeter, eliminating unwanted internal cuts.
+    - **Multi-Artboard Spatial Clustering**: Automatically isolates imposition grids across multiple artboards into dedicated groups without cross-artboard interference. Line deduplication (0.002 pt) and clipping mask detection.
+
+12. **8 Quick Presets & Synchronized Hotkeys**:
+    - **8 Fast Preset Slots (`[1]` .. `[8]`)** with custom names. Quick Apply (`Shift + F4` / `F4`) automatically synchronizes active UI parameters, checkboxes, and preset parameters. Fully compatible with Adobe Illustrator CC 2020 through 2027+.
 
 ---
 
@@ -248,53 +244,49 @@ Special thanks to **Sergey Anosov** for his foundational prepress scripting work
    - В десятки раз быстрее традиционных ExtendScript / JSX скриптов на плотных спусках полос и макетах с сотнями объектов.
 
 2. **Единая 3-вкладочная архитектура палитры**:
-   - **Вкладка `[ Marks ]`**: 12 независимых направлений меток реза, геометрия (длина, смещение, вылеты, толщина обводки) с выбором единиц (мм, pt, дюймы, px), режим периметра, белая подложка, переключение 8 именованных пресетов и кнопка прямого построения `CREATE CROP MARKS`.
+   - **Вкладка `[ Marks ]`**: 12 независимых направлений меток реза, геометрия (длина, смещение, вылеты, толщина обводки) с выбором единиц (мм, pt, дюймы, px), выбор цели (каждый объект / всё выделение целиком / артборд), режим границ, группировка, выбор слоя, режим периметра, белая подложка, переключение 8 именованных пресетов и кнопка прямого построения `CREATE CROP MARKS`.
    - **Вкладка `[ Pantones ]`**: Выбор триадных красок CMYK (C, M, Y, K) и автоматическое сканирование спот-красок документа с умной фильтрацией.
-   - **Вкладка `[ Settings ]`**: Тонкая настройка контрольных шкал, параметров приводных крестов модели Аносова, инфоблока документа с транслитерацией кириллицы и системных параметров.
+   - **Вкладка `[ Settings ]`**: Тонкая настройка контрольных шкал (включая настраиваемый шаг повтора), параметров приводных крестов модели Аносова, инфоблока документа с транслитерацией кириллицы, экспорт/импорт настроек и системные хоткеи.
 
 3. **Сканирование пантонов и умный фильтр технических цветов**:
    - **Автоматический опрос каталога свотчей**: Считывание всех плашечных / спот-красок документа через SDK (`sAISwatchList`, `sAICustomColor`).
    - **Умная классификация технических слоев (`IsTechnicalSpotName`)**: Автоматическое распознавание и исключение из контрольной шкалы непечатных и отделочных красок (штамп, вырубка, нож, биг, лак, уф, фольга, клише, белила, клей, die, cut, crease, varnish, foil, white и т.д.).
    - **Интерактивный список**: Список обнаруженных красок с чекбоксами, кнопками быстрого выбора `Rescan`, `All`, `None`, `Filter` и кнопкой `APPLY PANTONES`.
 
-4. **Приводные метки / кресты (Полиграфическая модель С. Аносова)**:
-   - Высокоточные прицелы с двойным концентрическим кольцом и крестом.
-   - **Настраиваемые габариты**: Диаметр кольца (`Diam`, по умолчанию 4.0 мм) и размах перекрестия (`Arm`, по умолчанию 6.0 мм).
-   - **Толщина линий и единицы измерения**: Толщина обводки (по умолчанию 0.10 мм) с выбором единиц (мм / pt / in / px).
-   - **Раздельные отступы**: Независимые смещения по горизонтали и вертикали (`regOffsetHor`, `regOffsetVer`).
-   - **4 полиграфические схемы расстановки**:
-     - `Centers (4)`: по центру 4 сторон.
-     - `Corners (4)`: по 4 углам листа.
-     - `Centers + Corners (8)`: центры + углы (8 крестов).
-     - `All 16 Directions (16)`: полная 16-точечная схема Аносова по внешнему периметру спуска (5 сверху, 5 снизу, 3 слева, 3 справа).
-   - **Белая маскирующая контурная подложка (`+1.2 pt`)**: Четкая видимость крестов на темных фонах и насыщенных плашках навылет.
-   - **Управление порядком слоев (Z-Order)**: Размещение крестов поверх (`Above`) или под (`Below`) обрезными метками и шкалами.
+4. **Режим «Entire selection (1 box)» и внутренние метки для штампов**:
+   - **Единый габарит выделения**: Режим расчета по общему внешнему габариту всего выделения для сложных вырубных штампов, коробок и упаковки (даже состоящих из сотен разрозненных контуров). Метки выставляются строго по 4 внешним углам без паразитных внутренних засечек.
+   - **Внутренние угловые метки штампов (Модель Аносова)**: Полная поддержка отрицательной длины (`Length V/H < 0`, например `-6 мм`) при нулевом отступе (`Offset = 0 мм`) для отрисовки угловых засечек, направленных внутрь контура штампа.
 
-5. **Продвинутые контрольные цветовые шкалы**:
-   - **Режим 100% Solids (`CMYK + Pantones`)**: Чистые плашки 100% без растровых полутонов (Cyan, Magenta, Yellow, Black, бинарные наложения Red, Green, Blue, 3C серый, плюс выбранные пантоны документа).
-   - **Стандарт ISO 12647-2 (Офсетная печать)**: Контроль градационных кривых TVI и баланса серого.
-   - **Стандарт ISO 12647-7 (Цветопроба)**: Нормативный набор шкалы Fogra Media Wedge с памятными цветами и полутонами.
-   - **Настраиваемый размер плашки**: Ширина × Высота (по умолчанию 5.0 × 5.0 мм).
-   - **Непрерывное продление**: Серия плашек автоматически циклически повторяется вдоль листа с технологическим зазором 4 мм (`шкала ➔ зазор 4 мм ➔ шкала...`).
+5. **Трехуровневая иерархическая группировка (`Cuts`, `Registration Marks`, `Color Bars`)**:
+   - Внутри общей группы `"Crop Marks"` создается четкая структура: метки реза объединяются в подгруппу `"Cuts"`, кресты совмещения — в `"Registration Marks"`, а шкалы и служебный текст — в `"Color Bars"`.
+   - Позволяет инструментом «Групповое выделение» (Group Selection Tool / белая стрелка с плюсом) одним кликом выделить и сдвинуть, например, только цветовую шкалу или только приводные кресты, не разгруппировывая весь макет.
+
+6. **Выбор целевого слоя и автосоздание (`Layer`)**:
+   - Выпадающий список выбора слоя: размещение меток на текущем активном слое (`[ Current Layer ]`), автоматическое создание выделенного слоя допечатной подготовки (`[ New: Crop Marks ]`) или отправка меток на любой существующий слой документа.
+
+7. **Экспорт и импорт настроек (JSON)**:
+   - Сохранение и загрузка пресетов и параметров в файл JSON (кнопки `Export...` и `Import...` на вкладке Settings). Позволяет легко переносить настройки между версиями плагина, синхронизировать конфигурацию на нескольких рабочих станциях и делать резервные копии.
+
+8. **Контрольные шкалы и режим 100% чистых плашек**:
+   - **Режим 100% Primaries (`CMYK + Spots, no overprints`)**: Только чистые 100% плашки печатных красок без полутонов и без бинарных наложений (Red, Green, Blue, 3C серый).
+   - **Режим 100% Solids (`CMYK + Pantones`)**: 100% плашки с бинарными наложениями и спот-цветами.
+   - **Стандарты ISO 12647-2 (Офсетная печать)** и **ISO 12647-7 (Цветопроба)**.
+   - **Настраиваемый зазор повтора шкалы (`Gap`, по умолчанию 0.0 мм)**: Возможность задать расстояние между повторяющимися блоками шкалы (0 мм для сплошной непрерывной ленты или любое необходимое расстояние).
    - **Защитные поля**: Старт на +3 мм от первой обрезной метки, остановка за -3 мм до последней метки.
-   - **Гибкое размещение и Z-Order**: Независимое включение по длинной (верх) и короткой (лево) сторонам, порядок наложения *Above* или *Below* меток.
 
-6. **Служебный блок Document Info с транслитерацией кириллицы**:
-   - Автоматический вывод имени файла, текущей даты и точного времени шрифтом 5 pt краской Registration с отступом 1 мм над верхней шкалой.
-   - **Транслитерация кириллицы в латиницу (`[x] Transliterate Cyrillic to Latin`)**: Исключает сбои кодировок, кракозябры и ошибки в растровых процессорах (RIP), фотовыводных автоматах и CTP при выводе печатных форм.
+9. **Приводные метки / кресты (Полиграфическая модель С. Аносова)**:
+   - Высокоточные прицелы с двойным концентрическим кольцом и крестом. Диаметр кольца, размах перекрестия, толщина обводки (мм/pt/in/px), раздельные смещения H/V и 4 схемы (центры, углы, центры+углы, 16 направлений по периметру). Белая маскирующая контурная подложка (+1.2 pt) и выбор Z-Order.
 
-7. **Режим «Только периметр» и мульти-артбордные спуски**:
-   - **Режим Only perimeter**: Расставляет метки строго по внешнему периметру выделенной группы объектов (визитки, этикетки, наклейки), исключая внутренние паразитные засечки.
-   - **Пространственная кластеризация**: Автоматически группирует спуски по артбордам без взаимных помех и паразитных линий через свободное пространство.
-   - **Дедупликация линий**: Позиционный кэш исключает наложение повторяющихся линий с точностью до `0.002 pt`.
-   - **Поддержка обтравочных масок (Clipping Mask)**: Расчет меток строго по контуру видимого содержимого с игнорированием служебных направляющих.
-   - **Гарантированное опускание назад (Send to Back)**: Все метки объединяются в единую группу `"Crop Marks"` и опускаются строго под элементы макета.
-   - **Отмена в один шаг (Ctrl+Z)**: Полная интеграция в стек истории Illustrator (`sAIUndo->SetUndoTextUS`).
+10. **Служебный блок Document Info с транслитерацией кириллицы**:
+    - Автоматический вывод имени файла, текущей даты и точного времени шрифтом 5 pt краской Registration с отступом 1 мм над верхней шкалой.
+    - **Транслитерация кириллицы в латиницу (`[x] Transliterate Cyrillic to Latin`)**: Исключает сбои кодировок, кракозябры и ошибки в растровых процессорах (RIP), фотовыводных автоматах и CTP при выводе печатных форм.
 
-8. **8 быстрых пресетов и синхронизация хоткеев**:
-   - **8 слотов быстрых пресетов (`[1]` .. `[8]`)** с произвольными именами (например: `Визитка 90x50`, `Буклет А4 Вылет 2мм`, `Упаковка 6/4`). Сохранение в `%APPDATA%\MakeCropMarksAI\presets.json`.
-   - **Синхронизация хоткеев**: Быстрое применение по хоткею (`Shift + F4` / `F4`) автоматически считывает все активные настройки панели (включая кресты, шкалы и пантоны) и синхронизирует их в активный пресет.
-   - **Навигация с клавиатуры**: `Tab` / `Shift + Tab` для циклического перемещения между контролами, `Enter` для мгновенной генерации меток или сохранения имени пресета.
+11. **Режим «Только периметр» и мульти-артбордные спуски**:
+    - **Режим Only perimeter**: Расставляет метки строго по внешнему периметру выделенной группы объектов, исключая внутренние паразитные засечки.
+    - **Пространственная кластеризация**: Автоматически группирует спуски по артбордам. Дедупликация линий (0.002 pt) и учет обтравочных масок.
+
+12. **8 быстрых пресетов и синхронизация хоткеев**:
+    - **8 слотов быстрых пресетов (`[1]` .. `[8]`)** с именами. Синхронизация хоткеев (`Shift + F4` / `F4`). Полная совместимость с Adobe Illustrator CC 2020 – 2027+.
 
 ---
 
