@@ -75,6 +75,7 @@ extern "C" ASAPI ASErr PluginMain(char* caller, char* selector, void* message) {
         }
     }
 
+    PluginLog("[PluginMain] <<< caller='%s', selector='%s', error=%d", caller, selector, error);
     return error;
 }
 

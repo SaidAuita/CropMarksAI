@@ -47,6 +47,9 @@ public:
     int GetBarStandard() const { return m_barStandard; }
     double GetBarsOffset() const { return m_barsOffset; }
     double GetCrossOffset() const { return m_crossOffset; }
+    double GetBarRepeatGap() const { return m_barRepeatGap; }
+    int GetLayerMode() const { return m_layerMode; }
+    std::string GetLayerName() const { return m_layerName; }
     bool GetDocInfo() const { return m_docInfo; }
     bool GetDocInfoTranslit() const { return m_docInfoTranslit; }
 
@@ -56,6 +59,9 @@ public:
     void SetBarStandard(int std) { m_barStandard = std; }
     void SetBarsOffset(double off) { m_barsOffset = off; }
     void SetCrossOffset(double off) { m_crossOffset = off; }
+    void SetBarRepeatGap(double gap) { m_barRepeatGap = gap; }
+    void SetLayerMode(int mode) { m_layerMode = mode; }
+    void SetLayerName(const std::string& name) { m_layerName = name; }
     void SetDocInfo(bool enabled) { m_docInfo = enabled; }
     void SetDocInfoTranslit(bool enabled) { m_docInfoTranslit = enabled; }
 
@@ -115,6 +121,10 @@ public:
     bool ShowSettingsDialog(HWND parentHwnd, float currentScale = 0.0f);
     bool IsDialogActive() const { return m_dialogActive; }
 
+    // Export & Import all settings and presets
+    bool ExportSettingsToFile(HWND parentHwnd = NULL, const std::string& filePath = "");
+    bool ImportSettingsFromFile(HWND parentHwnd = NULL, const std::string& filePath = "");
+
     std::string GetAppDataFolder() const;
     std::string GetIniPath() const;
     std::string GetPresetsJsonPath() const;
@@ -142,6 +152,9 @@ private:
     int m_barStandard = kStandardISO12647_2;
     double m_barsOffset = 0.0;
     double m_crossOffset = 0.0;
+    double m_barRepeatGap = 0.0; // mm, default 0.0
+    int m_layerMode = kLayerCurrent;
+    std::string m_layerName = "";
     bool m_docInfo = false;
     bool m_docInfoTranslit = false;
 

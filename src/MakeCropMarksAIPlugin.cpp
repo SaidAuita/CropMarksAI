@@ -4,7 +4,7 @@
 #include <commctrl.h>
 #include <windowsx.h>
 
-#define PLUGIN_VERSION_STR "v1.31"
+#define PLUGIN_VERSION_STR "v1.36"
 
 #pragma comment(lib, "comctl32.lib")
 
@@ -43,6 +43,8 @@
 #define IDC_ED_SET_PATCH_H        2706
 #define IDC_LBL_SET_BAR_OFFSET    2707
 #define IDC_ED_SET_BAR_OFFSET     2708
+#define IDC_LBL_SET_BAR_GAP       2713
+#define IDC_ED_SET_BAR_GAP        2714
 #define IDC_LBL_SET_BAR_LEN       2709
 #define IDC_CMB_BAR_LEN           2710
 #define IDC_LBL_SET_BAR_ORDER     2711
@@ -71,6 +73,8 @@
 #define IDC_STATIC_SET_HK_INFO    2744
 #define IDC_BTN_SET_HOTKEYS       2745
 #define IDC_BTN_SET_SAVE_DEFAULTS 2746
+#define IDC_BTN_SET_EXPORT        2748
+#define IDC_BTN_SET_IMPORT        2749
 #define IDC_BTN_SETTINGS_APPLY    2747
 
 #define IDC_LBL_LENGTH          2010
@@ -80,6 +84,7 @@
 #define IDC_LBL_TARGET          2014
 #define IDC_LBL_BOUNDS          2015
 #define IDC_LBL_GROUP           2016
+#define IDC_LBL_LAYER           2017
 
 #define IDC_PRESET_BTN_BASE     2100 // 2100..2107 for presets 1..8
 #define IDC_ED_PRESET_NAME      2110
@@ -126,6 +131,7 @@
 #define IDC_CHK_REG_MARKS       2406
 #define IDC_CHK_BARS_LONG       2407
 #define IDC_CHK_BARS_SHORT      2408
+#define IDC_CMB_LAYER           2409
 
 // Actions & Links
 #define IDC_BTN_CREATE          2501
@@ -823,10 +829,17 @@ static void RelayoutPanel(HWND hwnd) {
         SetWindowPos(hCmbGroup, NULL, pad + comboLblW + S(2), S(480), comboBodyW, dropH, SWP_NOZORDER);
         updateComboHeight(hCmbGroup);
     }
+    HWND hLblLayer = GetDlgItem(hwnd, IDC_LBL_LAYER);
+    HWND hCmbLayer = GetDlgItem(hwnd, IDC_CMB_LAYER);
+    if (hLblLayer)  SetWindowPos(hLblLayer,  NULL, pad, S(505), comboLblW, S(18), SWP_NOZORDER);
+    if (hCmbLayer) {
+        SetWindowPos(hCmbLayer, NULL, pad + comboLblW + S(2), S(504), comboBodyW, dropH, SWP_NOZORDER);
+        updateComboHeight(hCmbLayer);
+    }
 
     HWND hBtnCreate = GetDlgItem(hwnd, IDC_BTN_CREATE);
     int createH = S(28);
-    if (hBtnCreate) SetWindowPos(hBtnCreate, NULL, pad, S(508), contentW, createH, SWP_NOZORDER);
+    if (hBtnCreate) SetWindowPos(hBtnCreate, NULL, pad, S(530), contentW, createH, SWP_NOZORDER);
 
     // ==========================================
     // TAB 1: PANTONES
@@ -901,8 +914,10 @@ static void RelayoutPanel(HWND hwnd) {
 
     HWND hLblSetBOff = GetDlgItem(hwnd, IDC_LBL_SET_BAR_OFFSET);
     HWND hEdSetBOff  = GetDlgItem(hwnd, IDC_ED_SET_BAR_OFFSET);
+    HWND hEdSetBGap  = GetDlgItem(hwnd, IDC_ED_SET_BAR_GAP);
     if (hLblSetBOff) SetWindowPos(hLblSetBOff, NULL, pad, S(120), sLblW, S(18), SWP_NOZORDER);
-    if (hEdSetBOff)  SetWindowPos(hEdSetBOff,  NULL, pad + sLblW + S(2), S(119), sBodyW, editH, SWP_NOZORDER);
+    if (hEdSetBOff)  SetWindowPos(hEdSetBOff,  NULL, pad + sLblW + S(2), S(119), sEdW, editH, SWP_NOZORDER);
+    if (hEdSetBGap)  SetWindowPos(hEdSetBGap,  NULL, pad + sLblW + S(2) + sEdW + S(4), S(119), sBodyW - sEdW - S(4), editH, SWP_NOZORDER);
 
     HWND hLblSetBLen = GetDlgItem(hwnd, IDC_LBL_SET_BAR_LEN);
     HWND hCmbSetBLen = GetDlgItem(hwnd, IDC_CMB_BAR_LEN);
@@ -984,21 +999,26 @@ static void RelayoutPanel(HWND hwnd) {
     if (hBtnHotkeys) SetWindowPos(hBtnHotkeys, NULL, pad, S(464), halfBtnW, S(24), SWP_NOZORDER);
     if (hBtnSaveDef) SetWindowPos(hBtnSaveDef, NULL, pad + halfBtnW + S(4), S(464), contentW - halfBtnW - S(4), S(24), SWP_NOZORDER);
 
+    HWND hBtnExport = GetDlgItem(hwnd, IDC_BTN_SET_EXPORT);
+    HWND hBtnImport = GetDlgItem(hwnd, IDC_BTN_SET_IMPORT);
+    if (hBtnExport) SetWindowPos(hBtnExport, NULL, pad, S(492), halfBtnW, S(24), SWP_NOZORDER);
+    if (hBtnImport) SetWindowPos(hBtnImport, NULL, pad + halfBtnW + S(4), S(492), contentW - halfBtnW - S(4), S(24), SWP_NOZORDER);
+
     HWND hBtnSettingsApply = GetDlgItem(hwnd, IDC_BTN_SETTINGS_APPLY);
-    if (hBtnSettingsApply) SetWindowPos(hBtnSettingsApply, NULL, pad, S(508), contentW, createH, SWP_NOZORDER);
+    if (hBtnSettingsApply) SetWindowPos(hBtnSettingsApply, NULL, pad, S(520), contentW, createH, SWP_NOZORDER);
 
     // ==========================================
     // COMMON FOOTER
     // ==========================================
     HWND hStatus = GetDlgItem(hwnd, IDC_STATIC_STATUS);
     int statusH = S(18);
-    int yStatus = S(508) + createH + S(4);
+    int yStatus = S(560);
     if (hStatus) SetWindowPos(hStatus, NULL, pad, yStatus, contentW, statusH, SWP_NOZORDER);
 
     HWND hLinkAuthor = GetDlgItem(hwnd, IDC_STATIC_LINK_AUTHOR);
     HWND hLinkTools  = GetDlgItem(hwnd, IDC_STATIC_LINK_TOOLS);
     int linkH = S(15);
-    int yLink1 = yStatus + statusH + S(4);
+    int yLink1 = yStatus + statusH + S(2);
     int yLink2 = yLink1 + linkH + S(2);
     if (hLinkAuthor) SetWindowPos(hLinkAuthor, NULL, pad, yLink1, contentW, linkH, SWP_NOZORDER);
     if (hLinkTools)  SetWindowPos(hLinkTools,  NULL, pad, yLink2, contentW, linkH, SWP_NOZORDER);
@@ -1299,6 +1319,11 @@ static LRESULT CALLBACK MakeCropMarksAIPanelProc(HWND hwnd, UINT msg, WPARAM wPa
             int id = LOWORD(wParam);
             int code = HIWORD(wParam);
 
+            if (code == CBN_DROPDOWN && id == IDC_CMB_LAYER) {
+                MakeCropMarksAIPlugin::GetInstance().PopulateLayersCombo();
+                return 0;
+            }
+
             // Forward click on static label (id = cid + 1000) to corresponding checkbox
             if (code == STN_CLICKED && id >= 3200 && id < 4000) {
                 int chkId = id - 1000;
@@ -1429,6 +1454,20 @@ static LRESULT CALLBACK MakeCropMarksAIPanelProc(HWND hwnd, UINT msg, WPARAM wPa
                     }
                     ConfigManager::GetInstance().Save();
                     SetDlgItemTextA(hwnd, IDC_STATIC_STATUS, "Settings applied successfully.");
+                    return 0;
+                }
+                case IDC_BTN_SET_EXPORT: {
+                    ConfigManager::GetInstance().ExportSettingsToFile(hwnd);
+                    return 0;
+                }
+                case IDC_BTN_SET_IMPORT: {
+                    if (ConfigManager::GetInstance().ImportSettingsFromFile(hwnd)) {
+                        int activeIdx = ConfigManager::GetInstance().GetActivePresetIndex();
+                        PresetItem curPreset = ConfigManager::GetInstance().GetPreset(activeIdx);
+                        MakeCropMarksAIPlugin::GetInstance().PopulateUIFromParams(curPreset.params);
+                        MakeCropMarksAIPlugin::GetInstance().PopulateSettingsToUI();
+                        SetDlgItemTextA(hwnd, IDC_ED_PRESET_NAME, curPreset.name.c_str());
+                    }
                     return 0;
                 }
 
@@ -1794,8 +1833,13 @@ SPErr MakeCropMarksAIPlugin::CreateDockablePanel() {
     SendMessageA(hCmbGroup, CB_ADDSTRING, 0, (LPARAM)"Marks only");
     SendMessageA(hCmbGroup, CB_ADDSTRING, 0, (LPARAM)"Marks and selection");
 
+    makeStatic("Layer:", 10, 498, 58, 20, IDC_LBL_LAYER);
+    HWND hCmbLayer = makeCombo(70, 496, 164, 140, IDC_CMB_LAYER);
+    SendMessageA(hCmbLayer, CB_ADDSTRING, 0, (LPARAM)"[ Current Layer ]");
+    SendMessageA(hCmbLayer, CB_ADDSTRING, 0, (LPARAM)"[ New: Crop Marks ]");
+
     // Main Action Button (Marks)
-    makeBtn("CREATE CROP MARKS", 10, 502, 224, 34, IDC_BTN_CREATE, true);
+    makeBtn("CREATE CROP MARKS", 10, 528, 224, 30, IDC_BTN_CREATE, true);
 
     // ==========================================
     // TAB 1: PANTONES CONTROLS
@@ -1833,7 +1877,8 @@ SPErr MakeCropMarksAIPlugin::CreateDockablePanel() {
     makeStatic("COLOR BARS", 10, 52, 220, 18, IDC_LBL_SET_BAR_HEADER, g_hBoldFont);
     makeStatic("Mode:", 10, 72, 70, 18, IDC_LBL_SET_BAR_MODE);
     HWND hCmbBarMode = makeCombo(82, 71, 140, 140, IDC_CMB_BAR_MODE);
-    SendMessageA(hCmbBarMode, CB_ADDSTRING, 0, (LPARAM)"100% Solids (CMYK+Pantones)");
+    SendMessageA(hCmbBarMode, CB_ADDSTRING, 0, (LPARAM)"100% Solids (CMYK+RGB+Pantones)");
+    SendMessageA(hCmbBarMode, CB_ADDSTRING, 0, (LPARAM)"100% Primaries (CMYK+Pantones, no RGB)");
     SendMessageA(hCmbBarMode, CB_ADDSTRING, 0, (LPARAM)"ISO 12647-2 (Halftones)");
     SendMessageA(hCmbBarMode, CB_ADDSTRING, 0, (LPARAM)"ISO 12647-7 (Proofing)");
 
@@ -1841,8 +1886,9 @@ SPErr MakeCropMarksAIPlugin::CreateDockablePanel() {
     makeEdit(82, 95, 65, 20, IDC_ED_SET_PATCH_W);
     makeEdit(152, 95, 65, 20, IDC_ED_SET_PATCH_H);
 
-    makeStatic("Offset (mm):", 10, 120, 70, 18, IDC_LBL_SET_BAR_OFFSET);
-    makeEdit(82, 119, 140, 20, IDC_ED_SET_BAR_OFFSET);
+    makeStatic("Offset / Gap:", 10, 120, 70, 18, IDC_LBL_SET_BAR_OFFSET);
+    makeEdit(82, 119, 65, 20, IDC_ED_SET_BAR_OFFSET);
+    makeEdit(152, 119, 65, 20, IDC_ED_SET_BAR_GAP);
 
     makeStatic("Length:", 10, 144, 70, 18, IDC_LBL_SET_BAR_LEN);
     HWND hCmbBarLen = makeCombo(82, 143, 140, 140, IDC_CMB_BAR_LEN);
@@ -1888,13 +1934,15 @@ SPErr MakeCropMarksAIPlugin::CreateDockablePanel() {
     makeCheckWithLabel("Add document name, date & time stamp", 10, 380, 220, 20, IDC_CHK_SET_DOC_INFO, g_hUIFont);
     makeCheckWithLabel("Transliterate Cyrillic to Latin", 10, 400, 220, 20, IDC_CHK_SET_DOC_TRANSLIT, g_hUIFont);
 
-    makeStatic("KEYBOARD SHORTCUTS", 10, 424, 220, 18, IDC_LBL_SET_HK_HEADER, g_hBoldFont);
+    makeStatic("KEYBOARD SHORTCUTS & BACKUP", 10, 424, 220, 18, IDC_LBL_SET_HK_HEADER, g_hBoldFont);
     makeStatic("Default: Ctrl+Shift+F4", 10, 442, 220, 16, IDC_STATIC_SET_HK_INFO, g_hSmallFont);
 
     makeBtn("Hotkeys...", 10, 464, 105, 24, IDC_BTN_SET_HOTKEYS);
     makeBtn("Save Defaults", 120, 464, 105, 24, IDC_BTN_SET_SAVE_DEFAULTS);
+    makeBtn("Export...", 10, 492, 105, 24, IDC_BTN_SET_EXPORT);
+    makeBtn("Import...", 120, 492, 105, 24, IDC_BTN_SET_IMPORT);
 
-    makeBtn("APPLY SETTINGS", 10, 508, 220, 28, IDC_BTN_SETTINGS_APPLY, true);
+    makeBtn("APPLY SETTINGS", 10, 520, 220, 28, IDC_BTN_SETTINGS_APPLY, true);
 
     // ==========================================
     // COMMON FOOTER
@@ -1955,7 +2003,6 @@ void MakeCropMarksAIPlugin::SwitchTab(int tabIndex) {
     UpdateTabVisibility();
 
     if (tabIndex == kTabPantones) {
-        AppContext appContext;
         if (ConfigManager::GetInstance().GetDocumentSpots().empty()) {
             auto spots = CropMarkEngine::GetInstance().ScanDocumentPantones();
             ConfigManager::GetInstance().SetDocumentSpots(spots);
@@ -1967,6 +2014,55 @@ void MakeCropMarksAIPlugin::SwitchTab(int tabIndex) {
 
     RelayoutPanel(m_hPanelDlg);
     InvalidateRect(m_hPanelDlg, NULL, TRUE);
+}
+
+void MakeCropMarksAIPlugin::PopulateLayersCombo() {
+    if (!m_hPanelDlg || !sAILayer) return;
+    HWND hCmb = GetDlgItem(m_hPanelDlg, IDC_CMB_LAYER);
+    if (!hCmb) return;
+
+    if (!sAIDocument) return;
+    AIDocumentHandle doc = nullptr;
+    if (sAIDocument->GetDocument(&doc) != kNoErr || !doc) {
+        SendMessageA(hCmb, CB_RESETCONTENT, 0, 0);
+        SendMessageA(hCmb, CB_ADDSTRING, 0, (LPARAM)"[ Current Layer ]");
+        SendMessageA(hCmb, CB_ADDSTRING, 0, (LPARAM)"[ New: Crop Marks ]");
+        SendMessageA(hCmb, CB_SETCURSEL, 0, 0);
+        return;
+    }
+
+    char curText[256] = { 0 };
+    int curSel = (int)SendMessageA(hCmb, CB_GETCURSEL, 0, 0);
+    if (curSel != CB_ERR) {
+        SendMessageA(hCmb, CB_GETLBTEXT, (WPARAM)curSel, (LPARAM)curText);
+    }
+
+    SendMessageA(hCmb, CB_RESETCONTENT, 0, 0);
+    SendMessageA(hCmb, CB_ADDSTRING, 0, (LPARAM)"[ Current Layer ]");
+    SendMessageA(hCmb, CB_ADDSTRING, 0, (LPARAM)"[ New: Crop Marks ]");
+
+    ai::int32 layerCount = 0;
+    if (sAILayer->CountLayers(&layerCount) == kNoErr && layerCount > 0) {
+        for (ai::int32 i = 0; i < layerCount; ++i) {
+            AILayerHandle layer = nullptr;
+            if (sAILayer->GetNthLayer(i, &layer) == kNoErr && layer) {
+                ai::UnicodeString title;
+                if (sAILayer->GetLayerTitle(layer, title) == kNoErr) {
+                    std::string name = title.as_UTF8();
+                    if (!name.empty()) {
+                        SendMessageA(hCmb, CB_ADDSTRING, 0, (LPARAM)name.c_str());
+                    }
+                }
+            }
+        }
+    }
+
+    if (strlen(curText) > 0) {
+        int idx = (int)SendMessageA(hCmb, CB_FINDSTRINGEXACT, -1, (LPARAM)curText);
+        SendMessageA(hCmb, CB_SETCURSEL, (WPARAM)(idx != CB_ERR ? idx : 0), 0);
+    } else {
+        SendMessageA(hCmb, CB_SETCURSEL, 0, 0);
+    }
 }
 
 void MakeCropMarksAIPlugin::UpdateTabVisibility() {
@@ -1988,6 +2084,7 @@ void MakeCropMarksAIPlugin::UpdateTabVisibility() {
         IDC_LBL_TARGET, IDC_CMB_TARGET,
         IDC_LBL_BOUNDS, IDC_CMB_BOUNDS,
         IDC_LBL_GROUP, IDC_CMB_GROUP,
+        IDC_LBL_LAYER, IDC_CMB_LAYER,
         IDC_BTN_CREATE
     };
 
@@ -2024,7 +2121,7 @@ void MakeCropMarksAIPlugin::UpdateTabVisibility() {
     const int tab2Controls[] = {
         IDC_LBL_SET_BAR_HEADER, IDC_LBL_SET_BAR_MODE, IDC_CMB_BAR_MODE,
         IDC_LBL_SET_PATCH_SIZE, IDC_ED_SET_PATCH_W, IDC_ED_SET_PATCH_H,
-        IDC_LBL_SET_BAR_OFFSET, IDC_ED_SET_BAR_OFFSET,
+        IDC_LBL_SET_BAR_OFFSET, IDC_ED_SET_BAR_OFFSET, IDC_ED_SET_BAR_GAP,
         IDC_LBL_SET_BAR_LEN, IDC_CMB_BAR_LEN,
         IDC_LBL_SET_BAR_ORDER, IDC_CMB_BAR_ORDER,
         IDC_LBL_SET_REG_HEADER, IDC_LBL_SET_REG_DIAM, IDC_ED_SET_REG_DIAM, IDC_ED_SET_REG_LEN,
@@ -2036,6 +2133,7 @@ void MakeCropMarksAIPlugin::UpdateTabVisibility() {
         IDC_LBL_SET_DOC_HEADER, IDC_CHK_SET_DOC_INFO, IDC_CHK_SET_DOC_TRANSLIT,
         IDC_LBL_SET_HK_HEADER, IDC_STATIC_SET_HK_INFO,
         IDC_BTN_SET_HOTKEYS, IDC_BTN_SET_SAVE_DEFAULTS,
+        IDC_BTN_SET_EXPORT, IDC_BTN_SET_IMPORT,
         IDC_BTN_SETTINGS_APPLY
     };
 
@@ -2135,6 +2233,7 @@ void MakeCropMarksAIPlugin::PopulateSettingsToUI() {
     setFloat(IDC_ED_SET_PATCH_W, cfg.GetPatchWidth());
     setFloat(IDC_ED_SET_PATCH_H, cfg.GetPatchHeight());
     setFloat(IDC_ED_SET_BAR_OFFSET, cfg.GetBarsOffset());
+    setFloat(IDC_ED_SET_BAR_GAP, cfg.GetBarRepeatGap());
     SendDlgItemMessage(m_hPanelDlg, IDC_CMB_BAR_LEN, CB_SETCURSEL, (WPARAM)cfg.GetBarLength(), 0);
     SendDlgItemMessage(m_hPanelDlg, IDC_CMB_BAR_ORDER, CB_SETCURSEL, (WPARAM)cfg.GetCropMarksLayerOrder(), 0);
 
@@ -2178,6 +2277,7 @@ void MakeCropMarksAIPlugin::ReadSettingsFromUI() {
     cfg.SetPatchWidth(getFloat(IDC_ED_SET_PATCH_W, 5.0));
     cfg.SetPatchHeight(getFloat(IDC_ED_SET_PATCH_H, 5.0));
     cfg.SetBarsOffset(getFloat(IDC_ED_SET_BAR_OFFSET, 2.0));
+    cfg.SetBarRepeatGap(getFloat(IDC_ED_SET_BAR_GAP, 0.0));
     int bLen = (int)SendDlgItemMessage(m_hPanelDlg, IDC_CMB_BAR_LEN, CB_GETCURSEL, 0, 0);
     if (bLen >= 0) cfg.SetBarLength(bLen);
     int bOrd = (int)SendDlgItemMessage(m_hPanelDlg, IDC_CMB_BAR_ORDER, CB_GETCURSEL, 0, 0);
@@ -2253,6 +2353,16 @@ void MakeCropMarksAIPlugin::PopulateUIFromParams(const CropMarkParams& p) {
     SendDlgItemMessage(m_hPanelDlg, IDC_CMB_TARGET, CB_SETCURSEL, (WPARAM)p.targetMode, 0);
     SendDlgItemMessage(m_hPanelDlg, IDC_CMB_BOUNDS, CB_SETCURSEL, (WPARAM)p.boundsMode, 0);
     SendDlgItemMessage(m_hPanelDlg, IDC_CMB_GROUP, CB_SETCURSEL, (WPARAM)p.groupMode, 0);
+
+    PopulateLayersCombo();
+    if (p.layerMode == kLayerCurrent || p.layerName.empty()) {
+        SendDlgItemMessage(m_hPanelDlg, IDC_CMB_LAYER, CB_SETCURSEL, 0, 0);
+    } else if (p.layerName == "Crop Marks") {
+        SendDlgItemMessage(m_hPanelDlg, IDC_CMB_LAYER, CB_SETCURSEL, 1, 0);
+    } else {
+        int idx = (int)SendDlgItemMessageA(m_hPanelDlg, IDC_CMB_LAYER, CB_FINDSTRINGEXACT, -1, (LPARAM)p.layerName.c_str());
+        SendDlgItemMessage(m_hPanelDlg, IDC_CMB_LAYER, CB_SETCURSEL, (WPARAM)(idx != CB_ERR ? idx : 0), 0);
+    }
 }
 
 void MakeCropMarksAIPlugin::ReadParamsFromUI(CropMarkParams& p) {
@@ -2304,6 +2414,23 @@ void MakeCropMarksAIPlugin::ReadParamsFromUI(CropMarkParams& p) {
     p.boundsMode = (int)SendDlgItemMessage(m_hPanelDlg, IDC_CMB_BOUNDS, CB_GETCURSEL, 0, 0);
     p.groupMode = (int)SendDlgItemMessage(m_hPanelDlg, IDC_CMB_GROUP, CB_GETCURSEL, 0, 0);
 
+    int layerSel = (int)SendDlgItemMessage(m_hPanelDlg, IDC_CMB_LAYER, CB_GETCURSEL, 0, 0);
+    if (layerSel <= 0) {
+        p.layerMode = kLayerCurrent;
+        p.layerName = "";
+    } else {
+        char layerBuf[256] = { 0 };
+        SendDlgItemMessageA(m_hPanelDlg, IDC_CMB_LAYER, CB_GETLBTEXT, (WPARAM)layerSel, (LPARAM)layerBuf);
+        p.layerMode = kLayerSpecific;
+        if (strcmp(layerBuf, "[ New: Crop Marks ]") == 0) {
+            p.layerName = "Crop Marks";
+        } else {
+            p.layerName = layerBuf;
+        }
+    }
+
+    p.barRepeatGap = ConfigManager::GetInstance().GetBarRepeatGap();
+
     p.barsOffset = ConfigManager::GetInstance().GetBarsOffset();
     p.crossOffset = ConfigManager::GetInstance().GetCrossOffset();
     p.cropMarksLayerOrder = ConfigManager::GetInstance().GetCropMarksLayerOrder();
@@ -2333,11 +2460,12 @@ void MakeCropMarksAIPlugin::ReadParamsFromUI(CropMarkParams& p) {
 }
 
 void MakeCropMarksAIPlugin::ExecuteCreateMarks() {
+    PluginLog("[ExecuteCreateMarks] START");
+    AppContext appContext(m_pluginRef);
     CropMarkParams p;
     ReadParamsFromUI(p);
     ConfigManager::GetInstance().SetActiveParams(p);
 
-    AppContext appContext(m_pluginRef);
     if (ConfigManager::GetInstance().GetDocumentSpots().empty()) {
         auto spots = CropMarkEngine::GetInstance().ScanDocumentPantones();
         ConfigManager::GetInstance().SetDocumentSpots(spots);
@@ -2348,15 +2476,17 @@ void MakeCropMarksAIPlugin::ExecuteCreateMarks() {
     if (m_hPanelDlg) {
         SetDlgItemTextA(m_hPanelDlg, IDC_STATIC_STATUS, res.message.c_str());
     }
+    PluginLog("[ExecuteCreateMarks] DONE (msg=%s)", res.message.c_str());
 }
 
 void MakeCropMarksAIPlugin::ExecuteQuickApply() {
+    PluginLog("[ExecuteQuickApply] START");
     if (m_hPanelDlg && IsWindow(m_hPanelDlg)) {
         ExecuteCreateMarks();
+        PluginLog("[ExecuteQuickApply] Delegated to ExecuteCreateMarks -> DONE");
         return;
     }
 
-    AppContext appContext(m_pluginRef);
     if (ConfigManager::GetInstance().GetDocumentSpots().empty()) {
         auto spots = CropMarkEngine::GetInstance().ScanDocumentPantones();
         ConfigManager::GetInstance().SetDocumentSpots(spots);
@@ -2368,6 +2498,7 @@ void MakeCropMarksAIPlugin::ExecuteQuickApply() {
     if (m_hPanelDlg) {
         SetDlgItemTextA(m_hPanelDlg, IDC_STATIC_STATUS, res.message.c_str());
     }
+    PluginLog("[ExecuteQuickApply] DONE (msg=%s)", res.message.c_str());
 }
 
 void MakeCropMarksAIPlugin::TogglePanel() {
@@ -2415,7 +2546,8 @@ SPErr MakeCropMarksAIPlugin::GoMenuItem(void* message) {
     AIMenuMessage* menuMsg = static_cast<AIMenuMessage*>(message);
     if (!menuMsg) return 1;
 
-    AppContext appContext(m_pluginRef);
+    PluginLog("[GoMenuItem] START (item=%p, Win=%p, Create=%p, Quick=%p, Set=%p)",
+              menuMsg->menuItem, m_hMenuWindow, m_hMenuCreate, m_hMenuQuickApply, m_hMenuSettings);
 
     if (menuMsg->menuItem == m_hMenuWindow) {
         TogglePanel();
@@ -2427,6 +2559,7 @@ SPErr MakeCropMarksAIPlugin::GoMenuItem(void* message) {
         float scale = GetPanelScale(m_hPanelDlg);
         ConfigManager::GetInstance().ShowSettingsDialog(m_hPanelDlg, scale);
     }
+    PluginLog("[GoMenuItem] DONE");
     return kSPNoError;
 }
 

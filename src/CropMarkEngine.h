@@ -52,9 +52,15 @@ enum ColorBarStandard {
 };
 
 enum ColorBarMode {
-    kColorBar100Solids = 0,  // 100% Solids (CMYK + Pantones, without halftones)
-    kColorBarISO12647_2Mode = 1, // ISO 12647-2
-    kColorBarISO12647_7Mode = 2  // ISO 12647-7
+    kColorBar100Solids = 0,         // 100% Solids + RGB Binaries + Pantones
+    kColorBar100PrimariesOnly = 1,  // 100% Primaries (CMYK + Pantones only, no RGB/binaries)
+    kColorBarISO12647_2Mode = 2,    // ISO 12647-2 (Halftones)
+    kColorBarISO12647_7Mode = 3     // ISO 12647-7 (Proofing)
+};
+
+enum CropMarkLayerMode {
+    kLayerCurrent = 0,    // Current / active layer
+    kLayerSpecific = 1    // Specific or new layer
 };
 
 enum RegMarkPositions {
@@ -110,6 +116,7 @@ struct CropMarkParams {
     double strokeWidth = 0.25;
     double barsOffset = 0.0;
     double crossOffset = 0.0;
+    double barRepeatGap = 0.0; // mm gap between repeated strips, default 0.0
 
     int units = kUnitsMM;
     int strokeUnits = kUnitsPT;
@@ -128,6 +135,8 @@ struct CropMarkParams {
     int boundsMode = kBoundsGeometric;
     int groupMode = kGroupMarksOnly;
     int targetMode = kTargetEachObject;
+    int layerMode = kLayerCurrent;
+    std::string layerName = "";
 
     // Registration Marks Advanced Adjustments (Anosov model)
     double regCircleDiam = 4.0;     // mm

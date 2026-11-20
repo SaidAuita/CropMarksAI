@@ -91,7 +91,8 @@ bool CropMarkEngine::HasSelectedAncestor(AIArtHandle art, const std::vector<AIAr
     if (!art || !sAIArt) return false;
     AIArtHandle curr = art;
     AIArtHandle parent = nullptr;
-    while (sAIArt->GetArtParent(curr, &parent) == kNoErr && parent) {
+    int depth = 100;
+    while (--depth > 0 && sAIArt->GetArtParent(curr, &parent) == kNoErr && parent && parent != curr) {
         if (IsLayerArt(parent)) {
             break;
         }
@@ -119,6 +120,39 @@ bool CropMarkEngine::IsCropMarksGroup(AIArtHandle art) {
     return false;
 }
 
+static bool IsInsideCropMarksGroup(AIArtHandle art) {
+    if (!art || !sAIArt) return false;
+    AIArtHandle curr = art;
+    AIArtHandle parent = nullptr;
+    int depth = 50;
+    while (--depth > 0 && sAIArt->GetArtParent(curr, &parent) == kNoErr && parent && parent != curr) {
+        if (CropMarkEngine::IsLayerArt(parent)) break;
+        if (CropMarkEngine::IsCropMarksGroup(parent)) return true;
+        curr = parent;
+    }
+    return false;
+}
+
+static AIArtHandle GetSafePlacementAnchor(AIArtHandle art) {
+    if (!art || !sAIArt) return nullptr;
+    AIArtHandle curr = art;
+    AIArtHandle parent = nullptr;
+    int depth = 50;
+    while (--depth > 0 && sAIArt->GetArtParent(curr, &parent) == kNoErr && parent && parent != curr) {
+        if (CropMarkEngine::IsLayerArt(parent)) {
+            return curr;
+        }
+        short pType = 0;
+        sAIArt->GetArtType(parent, &pType);
+        if (pType == kCompoundPathArt) {
+            curr = parent;
+            continue;
+        }
+        curr = parent;
+    }
+    return curr;
+}
+
 void CropMarkEngine::RemoveExistingCropMarks(AIArtHandle art) {
     if (!art || !sAIArt) return;
     short type = 0;
@@ -127,7 +161,8 @@ void CropMarkEngine::RemoveExistingCropMarks(AIArtHandle art) {
     if (type == kGroupArt) {
         AIArtHandle child = nullptr;
         sAIArt->GetArtFirstChild(art, &child);
-        while (child) {
+        int safetyLimit = 5000;
+        while (child && --safetyLimit > 0) {
             AIArtHandle next = nullptr;
             sAIArt->GetArtSibling(child, &next);
             if (IsCropMarksGroup(child)) {
@@ -137,12 +172,6 @@ void CropMarkEngine::RemoveExistingCropMarks(AIArtHandle art) {
             }
             child = next;
         }
-    }
-
-    // Also check immediate sibling below art (e.g. from previous kGroupMarksOnly run)
-    AIArtHandle sibling = nullptr;
-    if (sAIArt->GetArtSibling(art, &sibling) == kNoErr && sibling && IsCropMarksGroup(sibling)) {
-        sAIArt->DisposeArt(sibling);
     }
 }
 
@@ -366,7 +395,6 @@ std::string CropMarkEngine::TransliterateCyrillic(const std::string& src) {
 }
 
 std::vector<DocumentSpotColor> CropMarkEngine::ScanDocumentPantones() {
-    AppContext appContext;
     std::vector<DocumentSpotColor> spots;
     if (!sAIDocument || !sAISwatchList || !sAICustomColor) {
         PluginLog("[ScanDocumentPantones] Suites missing: sAIDoc=%p, sAISwatch=%p, sAICustom=%p",
@@ -861,13 +889,14 @@ static int CreateColorBarStrip(
     int standard,
     int length,
     bool barCyan, bool barMagenta, bool barYellow, bool barBlack,
-    const std::vector<DocumentSpotColor>& selectedSpots
+    const std::vector<DocumentSpotColor>& selectedSpots,
+    double repeatGapMm = 0.0
 ) {
     if (patchWidthPt <= 0.0 || patchHeightPt <= 0.0) return 0;
 
     std::vector<PatchItem> patchSequence;
 
-    if (barMode == kColorBar100Solids) {
+    if (barMode == kColorBar100Solids || barMode == kColorBar100PrimariesOnly) {
         // 100% Solid Patches mode (CMYK + Pantones without halftones)
         // 1. Process Primaries
         if (barCyan)    patchSequence.push_back({ false, nullptr, 1.0f, 0.0f, 0.0f, 0.0f });
@@ -875,12 +904,14 @@ static int CreateColorBarStrip(
         if (barYellow)  patchSequence.push_back({ false, nullptr, 0.0f, 0.0f, 1.0f, 0.0f });
         if (barBlack)   patchSequence.push_back({ false, nullptr, 0.0f, 0.0f, 0.0f, 1.0f });
 
-        // 2. Overprints (Binaries & 3-Color Gray)
-        if (barMagenta && barYellow) patchSequence.push_back({ false, nullptr, 0.0f, 1.0f, 1.0f, 0.0f }); // Red
-        if (barCyan && barYellow)    patchSequence.push_back({ false, nullptr, 1.0f, 0.0f, 1.0f, 0.0f }); // Green
-        if (barCyan && barMagenta)   patchSequence.push_back({ false, nullptr, 1.0f, 1.0f, 0.0f, 0.0f }); // Blue
-        if (barCyan && barMagenta && barYellow)
-                                     patchSequence.push_back({ false, nullptr, 1.0f, 1.0f, 1.0f, 0.0f }); // 3C Gray
+        // 2. Overprints (Binaries & 3-Color Gray) - ONLY in 100% Solids mode with binaries
+        if (barMode == kColorBar100Solids) {
+            if (barMagenta && barYellow) patchSequence.push_back({ false, nullptr, 0.0f, 1.0f, 1.0f, 0.0f }); // Red
+            if (barCyan && barYellow)    patchSequence.push_back({ false, nullptr, 1.0f, 0.0f, 1.0f, 0.0f }); // Green
+            if (barCyan && barMagenta)   patchSequence.push_back({ false, nullptr, 1.0f, 1.0f, 0.0f, 0.0f }); // Blue
+            if (barCyan && barMagenta && barYellow)
+                                         patchSequence.push_back({ false, nullptr, 1.0f, 1.0f, 1.0f, 0.0f }); // 3C Gray
+        }
 
         // 3. Selected Pantones
         for (const auto& sp : selectedSpots) {
@@ -926,7 +957,7 @@ static int CreateColorBarStrip(
     if (patchSequence.empty()) return 0;
 
     const double ptPerMm = 2.83464567;
-    const double gapPt = 3.0 * ptPerMm;
+    const double gapPt = (repeatGapMm < 0.0 ? 0.0 : repeatGapMm) * ptPerMm;
     double currentOffset = 0.0;
     bool reachedLimit = false;
     int createdCount = 0;
@@ -936,7 +967,8 @@ static int CreateColorBarStrip(
     const double stepSizePt = isHorizontal ? patchWidthPt : patchHeightPt;
     const double crossSizePt = isHorizontal ? patchHeightPt : patchWidthPt;
 
-    while (!reachedLimit) {
+    int maxLoops = 2000;
+    while (!reachedLimit && --maxLoops > 0) {
         for (size_t p = 0; p < patchSequence.size(); ++p) {
             double px = isHorizontal ? (startX + currentOffset) : startX;
             double py = isHorizontal ? startY : (startY - currentOffset);
@@ -955,7 +987,10 @@ static int CreateColorBarStrip(
 
             AIArtHandle pathArt = nullptr;
             sAIArt->NewArt(kPathArt, kPlaceInsideOnTop, parentGroup, &pathArt);
-            if (!pathArt) continue;
+            if (!pathArt) {
+                currentOffset += stepSizePt;
+                continue;
+            }
 
             AIPathSegment segs[4];
             if (isHorizontal) {
@@ -1187,6 +1222,39 @@ static std::vector<Cluster> BuildClusters(const std::vector<TargetItem>& allItem
     return clusters;
 }
 
+static AILayerHandle GetOrCreateLayer(const std::string& layerName) {
+    if (!sAILayer || layerName.empty() || layerName == "[ Current Layer ]") return nullptr;
+
+    std::string actualName = layerName;
+    if (actualName == "[ New: Crop Marks ]") {
+        actualName = "Crop Marks";
+    }
+
+    ai::int32 layerCount = 0;
+    if (sAILayer->CountLayers(&layerCount) == kNoErr && layerCount > 0) {
+        for (ai::int32 i = 0; i < layerCount; ++i) {
+            AILayerHandle layer = nullptr;
+            if (sAILayer->GetNthLayer(i, &layer) == kNoErr && layer) {
+                ai::UnicodeString title;
+                if (sAILayer->GetLayerTitle(layer, title) == kNoErr) {
+                    if (title.as_UTF8() == actualName) {
+                        return layer;
+                    }
+                }
+            }
+        }
+    }
+
+    // Layer not found: create new top layer
+    AILayerHandle newLayer = nullptr;
+    if (sAILayer->InsertLayer(nullptr, kPlaceAboveAll, &newLayer) == kNoErr && newLayer) {
+        ai::UnicodeString uTitle(actualName, kAIUTF8CharacterEncoding);
+        sAILayer->SetLayerTitle(newLayer, uTitle);
+        return newLayer;
+    }
+    return nullptr;
+}
+
 CropMarkResult CropMarkEngine::CreateCropMarks(const CropMarkParams& params) {
     auto startTime = std::chrono::high_resolution_clock::now();
     CropMarkResult res;
@@ -1198,8 +1266,21 @@ CropMarkResult CropMarkEngine::CreateCropMarks(const CropMarkParams& params) {
 
     // Verify open document
     AIDocumentHandle doc = nullptr;
-    if (sAIDocument->GetDocument(&doc) != kNoErr || !doc) {
+    if (sAIDocument) {
+        sAIDocument->GetDocument(&doc);
+    }
+    if (!doc && sAIDocumentList) {
+        ai::int32 docCount = 0;
+        if (sAIDocumentList->Count(&docCount) == kNoErr && docCount > 0) {
+            sAIDocumentList->GetNthDocument(&doc, 0);
+            if (doc && sAIDocumentList) {
+                sAIDocumentList->Activate(doc, true);
+            }
+        }
+    }
+    if (!doc) {
         res.message = "No active document found.";
+        PluginLog("[CropMarkEngine] FAIL: No active document found. (sAIDoc=%p, sAIDocList=%p)", sAIDocument, sAIDocumentList);
         return res;
     }
 
@@ -1257,7 +1338,7 @@ CropMarkResult CropMarkEngine::CreateCropMarks(const CropMarkParams& params) {
         rawList.reserve(artCount);
         for (ai::int32 i = 0; i < artCount; ++i) {
             AIArtHandle a = (*matches)[i];
-            if (!a || IsGuide(a) || IsCropMarksGroup(a)) continue;
+            if (!a || IsGuide(a) || IsCropMarksGroup(a) || IsInsideCropMarksGroup(a)) continue;
             rawList.push_back(a);
         }
 
@@ -1331,7 +1412,7 @@ CropMarkResult CropMarkEngine::CreateCropMarks(const CropMarkParams& params) {
                     grp, horizStartX, barStartY, true, patchWPt, patchHPt, horizLimitX,
                     params.barMode, params.barStandard, params.barLength,
                     params.barCyan, params.barMagenta, params.barYellow, params.barBlack,
-                    params.selectedSpots
+                    params.selectedSpots, params.barRepeatGap
                 );
             } else {
                 // Long side in portrait: Left vertical bar
@@ -1340,7 +1421,7 @@ CropMarkResult CropMarkEngine::CreateCropMarks(const CropMarkParams& params) {
                     grp, barStartX, vertStartY, false, patchWPt, patchHPt, vertLimitY,
                     params.barMode, params.barStandard, params.barLength,
                     params.barCyan, params.barMagenta, params.barYellow, params.barBlack,
-                    params.selectedSpots
+                    params.selectedSpots, params.barRepeatGap
                 );
             }
         }
@@ -1353,7 +1434,7 @@ CropMarkResult CropMarkEngine::CreateCropMarks(const CropMarkParams& params) {
                     grp, leftStartX, vertStartY, false, patchWPt, patchHPt, vertLimitY,
                     params.barMode, params.barStandard, params.barLength,
                     params.barCyan, params.barMagenta, params.barYellow, params.barBlack,
-                    params.selectedSpots
+                    params.selectedSpots, params.barRepeatGap
                 );
             } else {
                 // Short sides in portrait: Top and Bottom horizontal bars
@@ -1363,7 +1444,7 @@ CropMarkResult CropMarkEngine::CreateCropMarks(const CropMarkParams& params) {
                     grp, horizStartX, topStartY, true, patchWPt, patchHPt, horizLimitX,
                     params.barMode, params.barStandard, params.barLength,
                     params.barCyan, params.barMagenta, params.barYellow, params.barBlack,
-                    params.selectedSpots
+                    params.selectedSpots, params.barRepeatGap
                 );
 
                 // Bottom side
@@ -1372,7 +1453,7 @@ CropMarkResult CropMarkEngine::CreateCropMarks(const CropMarkParams& params) {
                     grp, horizStartX, botStartY, true, patchWPt, patchHPt, horizLimitX,
                     params.barMode, params.barStandard, params.barLength,
                     params.barCyan, params.barMagenta, params.barYellow, params.barBlack,
-                    params.selectedSpots
+                    params.selectedSpots, params.barRepeatGap
                 );
             }
         }
@@ -1551,20 +1632,99 @@ CropMarkResult CropMarkEngine::CreateCropMarks(const CropMarkParams& params) {
         }
     };
 
+    AILayerHandle targetLayer = nullptr;
+    if (params.layerMode == kLayerSpecific && !params.layerName.empty() && params.layerName != "[ Current Layer ]") {
+        targetLayer = GetOrCreateLayer(params.layerName);
+    }
+
+    auto createContainerAndSubgroups = [&](AIArtHandle anchorArt, AIArtHandle& outMarksGroup,
+                                           AIArtHandle& outCutsGroup, AIArtHandle& outRegGroup, AIArtHandle& outBarsGroup) -> bool {
+        outMarksGroup = nullptr;
+        outCutsGroup = nullptr;
+        outRegGroup = nullptr;
+        outBarsGroup = nullptr;
+
+        if (targetLayer) {
+            AIArtHandle layerRoot = nullptr;
+            if (sAIArt->GetFirstArtOfLayer(targetLayer, &layerRoot) == kNoErr && layerRoot) {
+                sAIArt->NewArt(kGroupArt, kPlaceInsideOnTop, layerRoot, &outMarksGroup);
+            }
+        }
+        if (!outMarksGroup) {
+            AIArtHandle safeAnchor = GetSafePlacementAnchor(anchorArt);
+            if (safeAnchor) {
+                sAIArt->NewArt(kGroupArt, kPlaceAbove, safeAnchor, &outMarksGroup);
+            } else {
+                sAIArt->NewArt(kGroupArt, kPlaceAboveAll, nullptr, &outMarksGroup);
+            }
+        }
+        if (!outMarksGroup) return false;
+        sAIArt->SetArtName(outMarksGroup, ai::UnicodeString("Crop Marks"));
+
+        if (params.groupMode != kGroupNone) {
+            sAIArt->NewArt(kGroupArt, kPlaceInsideOnBottom, outMarksGroup, &outCutsGroup);
+            if (outCutsGroup) sAIArt->SetArtName(outCutsGroup, ai::UnicodeString("Cuts"));
+
+            if (params.regMarks) {
+                sAIArt->NewArt(kGroupArt, kPlaceInsideOnBottom, outMarksGroup, &outRegGroup);
+                if (outRegGroup) sAIArt->SetArtName(outRegGroup, ai::UnicodeString("Registration Marks"));
+            }
+
+            if (params.colorBarsLong || params.colorBarsShort || params.docInfo) {
+                sAIArt->NewArt(kGroupArt, kPlaceInsideOnBottom, outMarksGroup, &outBarsGroup);
+                if (outBarsGroup) sAIArt->SetArtName(outBarsGroup, ai::UnicodeString("Color Bars"));
+            }
+        }
+        return true;
+    };
+
+    auto finalizeSubgroups = [&](AIArtHandle marksGroup, AIArtHandle& cutsGroup, AIArtHandle& regGroup, AIArtHandle& barsGroup) {
+        auto cleanupEmptySubgroup = [](AIArtHandle& grp) {
+            if (!grp) return;
+            AIArtHandle child = nullptr;
+            if (sAIArt->GetArtFirstChild(grp, &child) == kNoErr && !child) {
+                sAIArt->DisposeArt(grp);
+                grp = nullptr;
+            }
+        };
+        cleanupEmptySubgroup(cutsGroup);
+        cleanupEmptySubgroup(regGroup);
+        cleanupEmptySubgroup(barsGroup);
+
+        if (barsGroup && cutsGroup) {
+            if (params.cropMarksLayerOrder == kCropMarksAbovePatches) {
+                sAIArt->ReorderArt(cutsGroup, kPlaceAbove, barsGroup);
+            } else {
+                sAIArt->ReorderArt(cutsGroup, kPlaceBelow, barsGroup);
+            }
+        }
+        if (regGroup) {
+            if (params.crossMarksLayerOrder == kCrossMarksAbovePatches) {
+                if (barsGroup) sAIArt->ReorderArt(regGroup, kPlaceAbove, barsGroup);
+                if (cutsGroup) sAIArt->ReorderArt(regGroup, kPlaceAbove, cutsGroup);
+            } else {
+                if (barsGroup) sAIArt->ReorderArt(regGroup, kPlaceBelow, barsGroup);
+            }
+        }
+    };
+
     if (params.targetMode == kTargetArtboard) {
-        // Artboard target: create marks in a top-level group
+        // Artboard target
         AIArtHandle marksGroup = nullptr;
-        sAIArt->NewArt(kGroupArt, kPlaceAboveAll, nullptr, &marksGroup);
-        if (!marksGroup) {
+        AIArtHandle cutsGroup = nullptr;
+        AIArtHandle regGroup = nullptr;
+        AIArtHandle barsGroup = nullptr;
+
+        if (!createContainerAndSubgroups(nullptr, marksGroup, cutsGroup, regGroup, barsGroup)) {
             res.message = "Failed to create crop marks container group.";
             return res;
         }
-        sAIArt->SetArtName(marksGroup, ai::UnicodeString("Crop Marks"));
 
         std::vector<LineDedupeEntry> dedupeList;
         std::vector<AIArtHandle> groupMarks;
 
         auto addMark = [&](double x1, double y1, double x2, double y2) {
+            AIArtHandle destGrp = cutsGroup ? cutsGroup : marksGroup;
             if (params.whiteContour) {
                 LineDedupeEntry whiteEntry = { x1, y1, x2, y2, false };
                 bool exists = false;
@@ -1572,7 +1732,7 @@ CropMarkResult CropMarkEngine::CreateCropMarks(const CropMarkParams& params) {
                     if (AreLinesEqual(d, whiteEntry)) { exists = true; break; }
                 }
                 if (!exists) {
-                    AIArtHandle wArt = CreateLineArt(marksGroup, x1, y1, x2, y2, false, strokeWidthPt + 1.0);
+                    AIArtHandle wArt = CreateLineArt(destGrp, x1, y1, x2, y2, false, strokeWidthPt + 1.0);
                     if (wArt) {
                         dedupeList.push_back(whiteEntry);
                         groupMarks.push_back(wArt);
@@ -1586,7 +1746,7 @@ CropMarkResult CropMarkEngine::CreateCropMarks(const CropMarkParams& params) {
                 if (AreLinesEqual(d, regEntry)) { exists = true; break; }
             }
             if (!exists) {
-                AIArtHandle rArt = CreateLineArt(marksGroup, x1, y1, x2, y2, true, strokeWidthPt);
+                AIArtHandle rArt = CreateLineArt(destGrp, x1, y1, x2, y2, true, strokeWidthPt);
                 if (rArt) {
                     dedupeList.push_back(regEntry);
                     groupMarks.push_back(rArt);
@@ -1599,22 +1759,27 @@ CropMarkResult CropMarkEngine::CreateCropMarks(const CropMarkParams& params) {
                                  lVer, lHor, oVer, oHor, bVer, bHor, addMark);
         };
 
+        AIArtHandle regDestGrp = regGroup ? regGroup : marksGroup;
+        AIArtHandle barDestGrp = barsGroup ? barsGroup : marksGroup;
+
         if (params.crossMarksLayerOrder == kCrossMarksBelowPatches) {
-            addRegistrationTargets(marksGroup, targetItems[0].bounds);
+            addRegistrationTargets(regDestGrp, targetItems[0].bounds);
         }
         if (params.cropMarksLayerOrder == kCropMarksBelowPatches) {
             generateArtboardMarks();
         }
 
-        addColorBars(marksGroup, targetItems[0].bounds);
-        addDocInfo(marksGroup, targetItems[0].bounds);
+        addColorBars(barDestGrp, targetItems[0].bounds);
+        addDocInfo(barDestGrp, targetItems[0].bounds);
 
         if (params.cropMarksLayerOrder == kCropMarksAbovePatches) {
             generateArtboardMarks();
         }
         if (params.crossMarksLayerOrder == kCrossMarksAbovePatches) {
-            addRegistrationTargets(marksGroup, targetItems[0].bounds);
+            addRegistrationTargets(regDestGrp, targetItems[0].bounds);
         }
+
+        finalizeSubgroups(marksGroup, cutsGroup, regGroup, barsGroup);
 
         sAIArt->SetArtUserAttr(marksGroup, kArtSelected, 0);
         for (AIArtHandle m : groupMarks) {
@@ -1622,8 +1787,120 @@ CropMarkResult CropMarkEngine::CreateCropMarks(const CropMarkParams& params) {
         }
         totalMarksCreated = (int)groupMarks.size();
 
+    } else if (params.targetMode == kTargetEntireSelection) {
+        // ENTIRE SELECTION (Single Unified Bounding Box across all selected items)
+        AIRealRect unionBounds = targetItems[0].bounds;
+        for (size_t k = 1; k < targetItems.size(); ++k) {
+            if (targetItems[k].bounds.left < unionBounds.left) unionBounds.left = targetItems[k].bounds.left;
+            if (targetItems[k].bounds.top > unionBounds.top) unionBounds.top = targetItems[k].bounds.top;
+            if (targetItems[k].bounds.right > unionBounds.right) unionBounds.right = targetItems[k].bounds.right;
+            if (targetItems[k].bounds.bottom < unionBounds.bottom) unionBounds.bottom = targetItems[k].bounds.bottom;
+        }
+
+        AIArtHandle marksGroup = nullptr;
+        AIArtHandle cutsGroup = nullptr;
+        AIArtHandle regGroup = nullptr;
+        AIArtHandle barsGroup = nullptr;
+
+        if (!createContainerAndSubgroups(targetItems[0].art, marksGroup, cutsGroup, regGroup, barsGroup)) {
+            res.message = "Failed to create crop marks container group.";
+            return res;
+        }
+
+        std::vector<LineDedupeEntry> dedupeList;
+        std::vector<AIArtHandle> groupMarks;
+
+        auto addMark = [&](double x1, double y1, double x2, double y2) {
+            AIArtHandle destGrp = cutsGroup ? cutsGroup : marksGroup;
+            if (params.whiteContour) {
+                LineDedupeEntry whiteEntry = { x1, y1, x2, y2, false };
+                bool exists = false;
+                for (const auto& d : dedupeList) {
+                    if (AreLinesEqual(d, whiteEntry)) { exists = true; break; }
+                }
+                if (!exists) {
+                    AIArtHandle wArt = CreateLineArt(destGrp, x1, y1, x2, y2, false, strokeWidthPt + 1.0);
+                    if (wArt) {
+                        dedupeList.push_back(whiteEntry);
+                        groupMarks.push_back(wArt);
+                    }
+                }
+            }
+
+            LineDedupeEntry regEntry = { x1, y1, x2, y2, true };
+            bool exists = false;
+            for (const auto& d : dedupeList) {
+                if (AreLinesEqual(d, regEntry)) { exists = true; break; }
+            }
+            if (!exists) {
+                AIArtHandle rArt = CreateLineArt(destGrp, x1, y1, x2, y2, true, strokeWidthPt);
+                if (rArt) {
+                    dedupeList.push_back(regEntry);
+                    groupMarks.push_back(rArt);
+                }
+            }
+        };
+
+        auto generateEntireCropMarks = [&]() {
+            GenerateMarksForRect(unionBounds, params, true, true, true, true,
+                                 lVer, lHor, oVer, oHor, bVer, bHor, addMark);
+        };
+
+        AIArtHandle regDestGrp = regGroup ? regGroup : marksGroup;
+        AIArtHandle barDestGrp = barsGroup ? barsGroup : marksGroup;
+
+        if (params.crossMarksLayerOrder == kCrossMarksBelowPatches) {
+            addRegistrationTargets(regDestGrp, unionBounds);
+        }
+        if (params.cropMarksLayerOrder == kCropMarksBelowPatches) {
+            generateEntireCropMarks();
+        }
+
+        addColorBars(barDestGrp, unionBounds);
+        addDocInfo(barDestGrp, unionBounds);
+
+        if (params.cropMarksLayerOrder == kCropMarksAbovePatches) {
+            generateEntireCropMarks();
+        }
+        if (params.crossMarksLayerOrder == kCrossMarksAbovePatches) {
+            addRegistrationTargets(regDestGrp, unionBounds);
+        }
+
+        finalizeSubgroups(marksGroup, cutsGroup, regGroup, barsGroup);
+
+        totalMarksCreated += (int)groupMarks.size();
+
+        sAIArt->SetArtUserAttr(marksGroup, kArtSelected, 0);
+        for (AIArtHandle m : groupMarks) {
+            sAIArt->SetArtUserAttr(m, kArtSelected, 0);
+        }
+
+        // Apply Grouping Mode
+        if (params.groupMode == kGroupMarksAndSelection && !targetLayer) {
+            AIArtHandle entireGroup = nullptr;
+            sAIArt->NewArt(kGroupArt, kPlaceBelow, marksGroup, &entireGroup);
+            if (entireGroup) {
+                sAIArt->ReorderArt(marksGroup, kPlaceInsideOnBottom, entireGroup);
+                for (const auto& ti : targetItems) {
+                    if (ti.art) {
+                        AIArtHandle par = nullptr;
+                        sAIArt->GetArtParent(ti.art, &par);
+                        if (par && IsLayerArt(par)) {
+                            sAIArt->ReorderArt(ti.art, kPlaceInsideOnTop, entireGroup);
+                        }
+                    }
+                }
+                sAIArt->SetArtUserAttr(entireGroup, kArtSelected, 0);
+            }
+        } else if (params.groupMode == kGroupNone) {
+            for (AIArtHandle m : groupMarks) {
+                sAIArt->ReorderArt(m, kPlaceBelow, marksGroup);
+            }
+            sAIArt->DisposeArt(marksGroup);
+        }
+
     } else {
-        // Selected items: split into spatial clusters (e.g. 1 cluster per artboard or card block)
+        // EACH OBJECT IN SELECTION: split into spatial clusters
         std::vector<Cluster> clusters = BuildClusters(targetItems, 50.0);
 
         for (const auto& cluster : clusters) {
@@ -1631,14 +1908,17 @@ CropMarkResult CropMarkEngine::CreateCropMarks(const CropMarkParams& params) {
 
             AIArtHandle anchorArt = cluster.items[0].art;
             AIArtHandle marksGroup = nullptr;
-            AIErr gErr = sAIArt->NewArt(kGroupArt, kPlaceBelow, anchorArt, &marksGroup);
-            if (gErr != kNoErr || !marksGroup) continue;
-            sAIArt->SetArtName(marksGroup, ai::UnicodeString("Crop Marks"));
+            AIArtHandle cutsGroup = nullptr;
+            AIArtHandle regGroup = nullptr;
+            AIArtHandle barsGroup = nullptr;
+
+            if (!createContainerAndSubgroups(anchorArt, marksGroup, cutsGroup, regGroup, barsGroup)) continue;
 
             std::vector<LineDedupeEntry> dedupeList;
             std::vector<AIArtHandle> clusterMarks;
 
             auto addMark = [&](double x1, double y1, double x2, double y2) {
+                AIArtHandle destGrp = cutsGroup ? cutsGroup : marksGroup;
                 if (params.whiteContour) {
                     LineDedupeEntry whiteEntry = { x1, y1, x2, y2, false };
                     bool exists = false;
@@ -1646,7 +1926,7 @@ CropMarkResult CropMarkEngine::CreateCropMarks(const CropMarkParams& params) {
                         if (AreLinesEqual(d, whiteEntry)) { exists = true; break; }
                     }
                     if (!exists) {
-                        AIArtHandle wArt = CreateLineArt(marksGroup, x1, y1, x2, y2, false, strokeWidthPt + 1.0);
+                        AIArtHandle wArt = CreateLineArt(destGrp, x1, y1, x2, y2, false, strokeWidthPt + 1.0);
                         if (wArt) {
                             dedupeList.push_back(whiteEntry);
                             clusterMarks.push_back(wArt);
@@ -1660,7 +1940,7 @@ CropMarkResult CropMarkEngine::CreateCropMarks(const CropMarkParams& params) {
                     if (AreLinesEqual(d, regEntry)) { exists = true; break; }
                 }
                 if (!exists) {
-                    AIArtHandle rArt = CreateLineArt(marksGroup, x1, y1, x2, y2, true, strokeWidthPt);
+                    AIArtHandle rArt = CreateLineArt(destGrp, x1, y1, x2, y2, true, strokeWidthPt);
                     if (rArt) {
                         dedupeList.push_back(regEntry);
                         clusterMarks.push_back(rArt);
@@ -1669,66 +1949,66 @@ CropMarkResult CropMarkEngine::CreateCropMarks(const CropMarkParams& params) {
             };
 
             auto generateClusterCropMarks = [&]() {
-                if (params.targetMode == kTargetEntireSelection) {
-                    GenerateMarksForRect(cluster.unionRc, params, true, true, true, true,
-                                         lVer, lHor, oVer, oHor, bVer, bHor, addMark);
-                } else {
-                    for (size_t i = 0; i < cluster.items.size(); ++i) {
-                        const auto& item = cluster.items[i];
-                        const AIRealRect& rc = item.bounds;
+                for (size_t i = 0; i < cluster.items.size(); ++i) {
+                    const auto& item = cluster.items[i];
+                    const AIRealRect& rc = item.bounds;
 
-                        auto candidateAddMark = [&](double x1, double y1, double x2, double y2) {
-                            if (params.perimeterOnly && cluster.items.size() > 1) {
-                                const double mLeft = (std::min)(x1, x2);
-                                const double mRight = (std::max)(x1, x2);
-                                const double mBottom = (std::min)(y1, y2);
-                                const double mTop = (std::max)(y1, y2);
+                    auto candidateAddMark = [&](double x1, double y1, double x2, double y2) {
+                        if (params.perimeterOnly && cluster.items.size() > 1) {
+                            const double mLeft = (std::min)(x1, x2);
+                            const double mRight = (std::max)(x1, x2);
+                            const double mBottom = (std::min)(y1, y2);
+                            const double mTop = (std::max)(y1, y2);
 
-                                const double tol = 0.02;
+                            const double tol = 0.02;
 
-                                for (size_t j = 0; j < cluster.items.size(); ++j) {
-                                    if (i == j) continue;
-                                    const AIRealRect& other = cluster.items[j].bounds;
+                            for (size_t j = 0; j < cluster.items.size(); ++j) {
+                                if (i == j) continue;
+                                const AIRealRect& other = cluster.items[j].bounds;
 
-                                    const double bLeft = other.left - oHor + tol;
-                                    const double bRight = other.right + oHor - tol;
-                                    const double bBottom = other.bottom - oVer + tol;
-                                    const double bTop = other.top + oVer - tol;
+                                const double bLeft = other.left - oHor + tol;
+                                const double bRight = other.right + oHor - tol;
+                                const double bBottom = other.bottom - oVer + tol;
+                                const double bTop = other.top + oVer - tol;
 
-                                    const bool overlapX = ((std::max)(mLeft, bLeft) <= (std::min)(mRight, bRight));
-                                    const bool overlapY = ((std::max)(mBottom, bBottom) <= (std::min)(mTop, bTop));
+                                const bool overlapX = ((std::max)(mLeft, bLeft) <= (std::min)(mRight, bRight));
+                                const bool overlapY = ((std::max)(mBottom, bBottom) <= (std::min)(mTop, bTop));
 
-                                    if (overlapX && overlapY) {
-                                        return;
-                                    }
+                                if (overlapX && overlapY) {
+                                    return;
                                 }
                             }
+                        }
 
-                            addMark(x1, y1, x2, y2);
-                        };
+                        addMark(x1, y1, x2, y2);
+                    };
 
-                        GenerateMarksForRect(rc, params, true, true, true, true,
-                                             lVer, lHor, oVer, oHor, bVer, bHor, candidateAddMark);
-                    }
+                    GenerateMarksForRect(rc, params, true, true, true, true,
+                                         lVer, lHor, oVer, oHor, bVer, bHor, candidateAddMark);
                 }
             };
 
+            AIArtHandle regDestGrp = regGroup ? regGroup : marksGroup;
+            AIArtHandle barDestGrp = barsGroup ? barsGroup : marksGroup;
+
             if (params.crossMarksLayerOrder == kCrossMarksBelowPatches) {
-                addRegistrationTargets(marksGroup, cluster.unionRc);
+                addRegistrationTargets(regDestGrp, cluster.unionRc);
             }
             if (params.cropMarksLayerOrder == kCropMarksBelowPatches) {
                 generateClusterCropMarks();
             }
 
-            addColorBars(marksGroup, cluster.unionRc);
-            addDocInfo(marksGroup, cluster.unionRc);
+            addColorBars(barDestGrp, cluster.unionRc);
+            addDocInfo(barDestGrp, cluster.unionRc);
 
             if (params.cropMarksLayerOrder == kCropMarksAbovePatches) {
                 generateClusterCropMarks();
             }
             if (params.crossMarksLayerOrder == kCrossMarksAbovePatches) {
-                addRegistrationTargets(marksGroup, cluster.unionRc);
+                addRegistrationTargets(regDestGrp, cluster.unionRc);
             }
+
+            finalizeSubgroups(marksGroup, cutsGroup, regGroup, barsGroup);
 
             if (clusterMarks.empty() && !params.regMarks && !params.colorBarsLong && !params.colorBarsShort && !params.docInfo) {
                 sAIArt->DisposeArt(marksGroup);
@@ -1742,23 +2022,19 @@ CropMarkResult CropMarkEngine::CreateCropMarks(const CropMarkParams& params) {
                 sAIArt->SetArtUserAttr(m, kArtSelected, 0);
             }
 
-            // CRITICAL: Ensure ALL artwork in cluster is strictly ABOVE marksGroup!
-            // Reordering every art above marksGroup guarantees marks are NEVER on top of artwork!
-            for (const auto& ti : cluster.items) {
-                if (ti.art) {
-                    sAIArt->ReorderArt(ti.art, kPlaceAbove, marksGroup);
-                }
-            }
-
             // Apply Grouping Mode
-            if (params.groupMode == kGroupMarksAndSelection) {
+            if (params.groupMode == kGroupMarksAndSelection && !targetLayer) {
                 AIArtHandle clusterGroup = nullptr;
                 sAIArt->NewArt(kGroupArt, kPlaceBelow, marksGroup, &clusterGroup);
                 if (clusterGroup) {
                     sAIArt->ReorderArt(marksGroup, kPlaceInsideOnBottom, clusterGroup);
                     for (const auto& ti : cluster.items) {
                         if (ti.art) {
-                            sAIArt->ReorderArt(ti.art, kPlaceInsideOnTop, clusterGroup);
+                            AIArtHandle par = nullptr;
+                            sAIArt->GetArtParent(ti.art, &par);
+                            if (par && IsLayerArt(par)) {
+                                sAIArt->ReorderArt(ti.art, kPlaceInsideOnTop, clusterGroup);
+                            }
                         }
                     }
                     sAIArt->SetArtUserAttr(clusterGroup, kArtSelected, 0);
@@ -1768,9 +2044,6 @@ CropMarkResult CropMarkEngine::CreateCropMarks(const CropMarkParams& params) {
                     sAIArt->ReorderArt(m, kPlaceBelow, marksGroup);
                 }
                 sAIArt->DisposeArt(marksGroup);
-            } else {
-                // kGroupMarksOnly: marksGroup already contains ALL marks for this cluster,
-                // and all artwork is strictly above marksGroup!
             }
         }
     }
@@ -1778,11 +2051,6 @@ CropMarkResult CropMarkEngine::CreateCropMarks(const CropMarkParams& params) {
     if (totalMarksCreated == 0) {
         res.message = "No marks created (all directions unchecked or zero bounds).";
         return res;
-    }
-
-    // Invalidate and force document redraw
-    if (sAIDocument) {
-        sAIDocument->RedrawDocument();
     }
 
     auto endTime = std::chrono::high_resolution_clock::now();

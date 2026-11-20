@@ -3,7 +3,7 @@
 [![Adobe Illustrator](https://img.shields.io/badge/Adobe%20Illustrator-CC%202020%20--%202026%2B-FF9A00?style=for-the-badge&logo=adobeillustrator&logoColor=white)](https://www.adobe.com/products/illustrator.html)
 [![Language](https://img.shields.io/badge/Language-C%2B%2B17-00599C?style=for-the-badge&logo=c%2B%2B&logoColor=white)](https://isocpp.org/)
 [![Platform](https://img.shields.io/badge/Platform-Windows%20x64-blue?style=for-the-badge&logo=windows&logoColor=white)](https://microsoft.com)
-[![Version](https://img.shields.io/badge/Version-v1.31-success?style=for-the-badge)](https://github.com/SaidAuita/CropMarksAI/releases)
+[![Version](https://img.shields.io/badge/Version-v1.36-success?style=for-the-badge)](https://github.com/SaidAuita/CropMarksAI/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](LICENSE)
 
 > **High-performance native C++ prepress plugin (`.aip`) for Adobe Illustrator (CC 2020 – 2026+ x64).**  
@@ -24,8 +24,8 @@
 
 > [!TIP]
 > ### 📥 Download Latest Release
-> **[CropMarksAI_Plugin_v1.31.zip](https://github.com/SaidAuita/CropMarksAI/releases/download/v1.31/CropMarksAI_Plugin_v1.31.zip)** *(Direct ZIP package with one-click installer)*  
-> Full release notes & assets: **[Release v1.31](https://github.com/SaidAuita/CropMarksAI/releases/tag/v1.31)**
+> **[CropMarksAI_Plugin_v1.36.zip](https://github.com/SaidAuita/CropMarksAI/releases/download/v1.36/CropMarksAI_Plugin_v1.36.zip)** *(Direct ZIP package with one-click installer)*  
+> Full release notes & assets: **[Release v1.36](https://github.com/SaidAuita/CropMarksAI/releases/tag/v1.36)**
 
 ---
 
@@ -207,8 +207,8 @@ Special thanks to **Sergey Anosov** for his foundational prepress scripting work
 
 > [!TIP]
 > ### 📥 Скачать последнюю версию плагина
-> **[CropMarksAI_Plugin_v1.31.zip](https://github.com/SaidAuita/CropMarksAI/releases/download/v1.31/CropMarksAI_Plugin_v1.31.zip)** *(Прямая загрузка архива с автоматическим установщиком)*  
-> Страница релиза и список изменений: **[Релиз v1.31](https://github.com/SaidAuita/CropMarksAI/releases/tag/v1.31)**
+> **[CropMarksAI_Plugin_v1.36.zip](https://github.com/SaidAuita/CropMarksAI/releases/download/v1.36/CropMarksAI_Plugin_v1.36.zip)** *(Прямая загрузка архива с автоматическим установщиком)*  
+> Страница релиза и список изменений: **[Релиз v1.36](https://github.com/SaidAuita/CropMarksAI/releases/tag/v1.36)**
 
 ---
 

@@ -320,6 +320,9 @@ void ConfigManager::LoadPresetsFromJson() {
         m_presets[i].params.colorBarsShort = getBool("colorBarsShort", false);
         m_presets[i].params.barsOffset = getDouble("barsOffset", m_presets[i].params.barsOffset);
         m_presets[i].params.crossOffset = getDouble("crossOffset", m_presets[i].params.crossOffset);
+        m_presets[i].params.barRepeatGap = getDouble("barRepeatGap", 0.0);
+        m_presets[i].params.layerMode = getInt("layerMode", kLayerCurrent);
+        m_presets[i].params.layerName = getString("layerName", "");
         m_presets[i].params.cropMarksLayerOrder = getInt("cropMarksLayerOrder", m_cropMarksLayerOrder);
         m_presets[i].params.crossMarksLayerOrder = getInt("crossMarksLayerOrder", m_crossMarksLayerOrder);
         m_presets[i].params.barLength = getInt("barLength", m_barLength);
@@ -392,6 +395,9 @@ void ConfigManager::SavePresetsToJson() {
         file << "      \"colorBarsShort\": " << (p.params.colorBarsShort ? "true" : "false") << ",\n";
         file << "      \"barsOffset\": " << p.params.barsOffset << ",\n";
         file << "      \"crossOffset\": " << p.params.crossOffset << ",\n";
+        file << "      \"barRepeatGap\": " << p.params.barRepeatGap << ",\n";
+        file << "      \"layerMode\": " << p.params.layerMode << ",\n";
+        file << "      \"layerName\": \"" << p.params.layerName << "\",\n";
         file << "      \"cropMarksLayerOrder\": " << p.params.cropMarksLayerOrder << ",\n";
         file << "      \"crossMarksLayerOrder\": " << p.params.crossMarksLayerOrder << ",\n";
         file << "      \"barLength\": " << p.params.barLength << ",\n";
@@ -452,6 +458,12 @@ void ConfigManager::Load() {
     m_barsOffset = atof(buf);
     GetPrivateProfileStringA("Prepress", "CrossOffset", "0.0", buf, sizeof(buf), ini.c_str());
     m_crossOffset = atof(buf);
+    GetPrivateProfileStringA("Prepress", "BarRepeatGap", "0.0", buf, sizeof(buf), ini.c_str());
+    m_barRepeatGap = atof(buf);
+    m_layerMode = GetPrivateProfileIntA("General", "LayerMode", kLayerCurrent, ini.c_str());
+    char layBuf[256] = { 0 };
+    GetPrivateProfileStringA("General", "LayerName", "", layBuf, sizeof(layBuf), ini.c_str());
+    m_layerName = layBuf;
     m_cropMarksLayerOrder = GetPrivateProfileIntA("Prepress", "CropMarksLayerOrder", kCropMarksAbovePatches, ini.c_str());
     m_crossMarksLayerOrder = GetPrivateProfileIntA("Prepress", "CrossMarksLayerOrder", kCrossMarksAbovePatches, ini.c_str());
     m_barLength = GetPrivateProfileIntA("Prepress", "BarLength", kColorBarShort, ini.c_str());
@@ -505,6 +517,10 @@ void ConfigManager::Save() {
     WritePrivateProfileStringA("Prepress", "BarsOffset", buf, ini.c_str());
     snprintf(buf, sizeof(buf), "%.2f", m_crossOffset);
     WritePrivateProfileStringA("Prepress", "CrossOffset", buf, ini.c_str());
+    snprintf(buf, sizeof(buf), "%.2f", m_barRepeatGap);
+    WritePrivateProfileStringA("Prepress", "BarRepeatGap", buf, ini.c_str());
+    WritePrivateProfileStringA("General", "LayerMode", std::to_string(m_layerMode).c_str(), ini.c_str());
+    WritePrivateProfileStringA("General", "LayerName", m_layerName.c_str(), ini.c_str());
     WritePrivateProfileStringA("Prepress", "CropMarksLayerOrder", std::to_string(m_cropMarksLayerOrder).c_str(), ini.c_str());
     WritePrivateProfileStringA("Prepress", "CrossMarksLayerOrder", std::to_string(m_crossMarksLayerOrder).c_str(), ini.c_str());
     WritePrivateProfileStringA("Prepress", "BarLength", std::to_string(m_barLength).c_str(), ini.c_str());
@@ -1028,4 +1044,221 @@ bool ConfigManager::ShowSettingsDialog(HWND parentHwnd, float currentScale) {
 
     m_dialogActive = false;
     return g_dlgData.saved;
+}
+
+bool ConfigManager::ExportSettingsToFile(HWND parentHwnd, const std::string& filePath) {
+    std::string path = filePath;
+    if (path.empty()) {
+        char szFile[MAX_PATH] = "CropMarksAI_Settings.json";
+        OPENFILENAMEA ofn = { 0 };
+        ofn.lStructSize = sizeof(ofn);
+        ofn.hwndOwner = parentHwnd;
+        ofn.lpstrFilter = "JSON Files (*.json)\0*.json\0All Files (*.*)\0*.*\0";
+        ofn.lpstrFile = szFile;
+        ofn.nMaxFile = sizeof(szFile);
+        ofn.lpstrTitle = "Export CropMarksAI Settings & Presets";
+        ofn.Flags = OFN_OVERWRITEPROMPT | OFN_PATHMUSTEXIST;
+        ofn.lpstrDefExt = "json";
+        if (!GetSaveFileNameA(&ofn)) {
+            return false;
+        }
+        path = szFile;
+    }
+
+    // Save current active preset state to disk first
+    SavePresetsToJson();
+    Save();
+
+    std::string jsonPath = GetPresetsJsonPath();
+    std::ifstream srcFile(jsonPath);
+    if (!srcFile.is_open()) return false;
+    std::string presetsJson((std::istreambuf_iterator<char>(srcFile)), std::istreambuf_iterator<char>());
+    srcFile.close();
+
+    std::ofstream out(path);
+    if (!out.is_open()) {
+        if (parentHwnd) MessageBoxA(parentHwnd, "Failed to create destination file for export.", "CropMarksAI Export", MB_OK | MB_ICONERROR);
+        return false;
+    }
+
+    out << "{\n";
+    out << "  \"version\": \"1.32\",\n";
+    out << "  \"generator\": \"CropMarksAI Prepress Plugin\",\n";
+    out << "  \"activePresetIndex\": " << m_activePresetIndex << ",\n";
+    out << "  \"hotkeys\": {\n";
+    out << "    \"openUiVk\": " << m_openUiHotkey.vkCode << ",\n";
+    out << "    \"openUiMod\": " << m_openUiHotkey.modifiers << ",\n";
+    out << "    \"quickApplyVk\": " << m_quickApplyHotkey.vkCode << ",\n";
+    out << "    \"quickApplyMod\": " << m_quickApplyHotkey.modifiers << "\n";
+    out << "  },\n";
+    out << "  \"prepress\": {\n";
+    out << "    \"barsOffset\": " << m_barsOffset << ",\n";
+    out << "    \"crossOffset\": " << m_crossOffset << ",\n";
+    out << "    \"barRepeatGap\": " << m_barRepeatGap << ",\n";
+    out << "    \"layerMode\": " << m_layerMode << ",\n";
+    out << "    \"layerName\": \"" << m_layerName << "\",\n";
+    out << "    \"cropMarksLayerOrder\": " << m_cropMarksLayerOrder << ",\n";
+    out << "    \"crossMarksLayerOrder\": " << m_crossMarksLayerOrder << ",\n";
+    out << "    \"barLength\": " << m_barLength << ",\n";
+    out << "    \"barStandard\": " << m_barStandard << ",\n";
+    out << "    \"barMode\": " << m_barMode << ",\n";
+    out << "    \"patchWidth\": " << m_patchWidth << ",\n";
+    out << "    \"patchHeight\": " << m_patchHeight << ",\n";
+    out << "    \"barCyan\": " << (m_barCyan ? "true" : "false") << ",\n";
+    out << "    \"barMagenta\": " << (m_barMagenta ? "true" : "false") << ",\n";
+    out << "    \"barYellow\": " << (m_barYellow ? "true" : "false") << ",\n";
+    out << "    \"barBlack\": " << (m_barBlack ? "true" : "false") << ",\n";
+    out << "    \"regCircleDiam\": " << m_regCircleDiam << ",\n";
+    out << "    \"regCrossLength\": " << m_regCrossLength << ",\n";
+    out << "    \"regStrokeWidth\": " << m_regStrokeWidth << ",\n";
+    out << "    \"regStrokeUnits\": " << m_regStrokeUnits << ",\n";
+    out << "    \"regOffsetHor\": " << m_regOffsetHor << ",\n";
+    out << "    \"regOffsetVer\": " << m_regOffsetVer << ",\n";
+    out << "    \"regPositions\": " << m_regPositions << ",\n";
+    out << "    \"regWhiteUnderlay\": " << (m_regWhiteUnderlay ? "true" : "false") << ",\n";
+    out << "    \"docInfo\": " << (m_docInfo ? "true" : "false") << ",\n";
+    out << "    \"docInfoTranslit\": " << (m_docInfoTranslit ? "true" : "false") << "\n";
+    out << "  },\n";
+
+    // Embed the presets array
+    size_t presetsPos = presetsJson.find("\"presets\"");
+    if (presetsPos != std::string::npos) {
+        size_t closeBrace = presetsJson.rfind("}");
+        if (closeBrace != std::string::npos && closeBrace > presetsPos) {
+            std::string sub = presetsJson.substr(presetsPos, closeBrace - presetsPos);
+            out << "  " << sub << "\n";
+        } else {
+            out << "  \"presets\": []\n";
+        }
+    } else {
+        out << "  \"presets\": []\n";
+    }
+    out << "}\n";
+    out.close();
+
+    if (parentHwnd) {
+        std::string msg = "Settings and presets successfully exported to:\n" + path;
+        MessageBoxA(parentHwnd, msg.c_str(), "CropMarksAI Export", MB_OK | MB_ICONINFORMATION);
+    }
+    return true;
+}
+
+bool ConfigManager::ImportSettingsFromFile(HWND parentHwnd, const std::string& filePath) {
+    std::string path = filePath;
+    if (path.empty()) {
+        char szFile[MAX_PATH] = { 0 };
+        OPENFILENAMEA ofn = { 0 };
+        ofn.lStructSize = sizeof(ofn);
+        ofn.hwndOwner = parentHwnd;
+        ofn.lpstrFilter = "JSON Files (*.json)\0*.json\0All Files (*.*)\0*.*\0";
+        ofn.lpstrFile = szFile;
+        ofn.nMaxFile = sizeof(szFile);
+        ofn.lpstrTitle = "Import CropMarksAI Settings & Presets";
+        ofn.Flags = OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST;
+        if (!GetOpenFileNameA(&ofn)) {
+            return false;
+        }
+        path = szFile;
+    }
+
+    std::ifstream file(path);
+    if (!file.is_open()) {
+        if (parentHwnd) MessageBoxA(parentHwnd, "Cannot open selected file for import.", "CropMarksAI Import", MB_OK | MB_ICONERROR);
+        return false;
+    }
+
+    std::string content((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+    file.close();
+
+    if (content.find("\"presets\"") == std::string::npos) {
+        if (parentHwnd) MessageBoxA(parentHwnd, "Invalid file format: 'presets' section not found.", "CropMarksAI Import", MB_OK | MB_ICONWARNING);
+        return false;
+    }
+
+    std::string targetPresetsPath = GetPresetsJsonPath();
+    std::ofstream out(targetPresetsPath);
+    if (out.is_open()) {
+        size_t pos = content.find("\"presets\"");
+        if (pos != std::string::npos) {
+            out << "{\n  " << content.substr(pos);
+            if (content.rfind("}") == std::string::npos) out << "\n}\n";
+        } else {
+            out << content;
+        }
+        out.close();
+    }
+
+    LoadPresetsFromJson();
+
+    auto getDouble = [&](const std::string& key, double defVal) -> double {
+        size_t kp = content.find("\"" + key + "\"");
+        if (kp == std::string::npos) return defVal;
+        size_t colon = content.find(":", kp);
+        if (colon == std::string::npos) return defVal;
+        try { return std::stod(content.substr(colon + 1)); } catch (...) { return defVal; }
+    };
+    auto getInt = [&](const std::string& key, int defVal) -> int {
+        size_t kp = content.find("\"" + key + "\"");
+        if (kp == std::string::npos) return defVal;
+        size_t colon = content.find(":", kp);
+        if (colon == std::string::npos) return defVal;
+        try { return std::stoi(content.substr(colon + 1)); } catch (...) { return defVal; }
+    };
+    auto getBool = [&](const std::string& key, bool defVal) -> bool {
+        size_t kp = content.find("\"" + key + "\"");
+        if (kp == std::string::npos) return defVal;
+        size_t colon = content.find(":", kp);
+        if (colon == std::string::npos) return defVal;
+        std::string sub = content.substr(colon + 1, 10);
+        if (sub.find("true") != std::string::npos) return true;
+        if (sub.find("false") != std::string::npos) return false;
+        return defVal;
+    };
+    auto getString = [&](const std::string& key, const std::string& defVal) -> std::string {
+        size_t kp = content.find("\"" + key + "\"");
+        if (kp == std::string::npos) return defVal;
+        size_t q1 = content.find("\"", kp + key.length() + 2);
+        if (q1 == std::string::npos) return defVal;
+        size_t q2 = content.find("\"", q1 + 1);
+        if (q2 == std::string::npos) return defVal;
+        return content.substr(q1 + 1, q2 - q1 - 1);
+    };
+
+    m_barsOffset = getDouble("barsOffset", m_barsOffset);
+    m_crossOffset = getDouble("crossOffset", m_crossOffset);
+    m_barRepeatGap = getDouble("barRepeatGap", m_barRepeatGap);
+    m_layerMode = getInt("layerMode", m_layerMode);
+    m_layerName = getString("layerName", m_layerName);
+    m_cropMarksLayerOrder = getInt("cropMarksLayerOrder", m_cropMarksLayerOrder);
+    m_crossMarksLayerOrder = getInt("crossMarksLayerOrder", m_crossMarksLayerOrder);
+    m_barLength = getInt("barLength", m_barLength);
+    m_barStandard = getInt("barStandard", m_barStandard);
+    m_barMode = getInt("barMode", m_barMode);
+    m_patchWidth = getDouble("patchWidth", m_patchWidth);
+    m_patchHeight = getDouble("patchHeight", m_patchHeight);
+    m_barCyan = getBool("barCyan", m_barCyan);
+    m_barMagenta = getBool("barMagenta", m_barMagenta);
+    m_barYellow = getBool("barYellow", m_barYellow);
+    m_barBlack = getBool("barBlack", m_barBlack);
+    m_regCircleDiam = getDouble("regCircleDiam", m_regCircleDiam);
+    m_regCrossLength = getDouble("regCrossLength", m_regCrossLength);
+    m_regStrokeWidth = getDouble("regStrokeWidth", m_regStrokeWidth);
+    m_regStrokeUnits = getInt("regStrokeUnits", m_regStrokeUnits);
+    m_regOffsetHor = getDouble("regOffsetHor", m_regOffsetHor);
+    m_regOffsetVer = getDouble("regOffsetVer", m_regOffsetVer);
+    m_regPositions = getInt("regPositions", m_regPositions);
+    m_regWhiteUnderlay = getBool("regWhiteUnderlay", m_regWhiteUnderlay);
+    m_docInfo = getBool("docInfo", m_docInfo);
+    m_docInfoTranslit = getBool("docInfoTranslit", m_docInfoTranslit);
+
+    m_activePresetIndex = getInt("activePresetIndex", m_activePresetIndex);
+    if (m_activePresetIndex < 0 || m_activePresetIndex >= 8) m_activePresetIndex = 0;
+
+    Save();
+
+    if (parentHwnd) {
+        std::string msg = "Settings and presets successfully imported from:\n" + path;
+        MessageBoxA(parentHwnd, msg.c_str(), "CropMarksAI Import", MB_OK | MB_ICONINFORMATION);
+    }
+    return true;
 }

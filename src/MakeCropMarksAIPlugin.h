@@ -41,6 +41,7 @@ public:
     // Tab Management
     void SwitchTab(int tabIndex);
     void UpdateTabVisibility();
+    void PopulateLayersCombo();
     void PopulatePantonesList();
     void UpdateSpotsFromList();
     static bool IsPopulatingSpots() { return s_isPopulatingSpots; }

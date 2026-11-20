@@ -69,7 +69,7 @@ cl.exe /nologo /std:c++17 /O2 /MD /EHsc /W3 /LD ^
     "%SDK_ROOT%\illustratorapi\illustrator\IAIUnicodeString.cpp" ^
     "%SDK_ROOT%\illustratorapi\illustrator\IAIArtboards.cpp" ^
     "%OUT_DIR%\MakeCropMarksAI.res" ^
-    User32.lib Gdi32.lib Shell32.lib Comctl32.lib ^
+    User32.lib Gdi32.lib Shell32.lib Comctl32.lib Comdlg32.lib ^
     /Fo"%OUT_DIR%\\" ^
     /Fe"%OUT_DIR%\CropMarksAI.aip" ^
     /link /DLL /MACHINE:X64 /SUBSYSTEM:WINDOWS /EXPORT:PluginMain
