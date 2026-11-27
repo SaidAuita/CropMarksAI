@@ -13,6 +13,7 @@
 #include "AIMenu.h"
 #include "AIMenuGroups.h"
 #include "AIArt.h"
+#include "AIGroup.h"
 #include "AIPath.h"
 #include "AIPathStyle.h"
 #include "AICustomColor.h"
@@ -45,6 +46,7 @@ extern "C" {
     extern AIMenuSuite*          sAIMenu;
     extern AIUnicodeStringSuite* sAIUnicodeString;
     extern AIArtSuite*           sAIArt;
+    extern AIGroupSuite*         sAIGroup;
     extern AIPathSuite*          sAIPath;
     extern AIPathStyleSuite*     sAIPathStyle;
     extern AICustomColorSuite*   sAICustomColor;

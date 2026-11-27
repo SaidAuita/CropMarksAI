@@ -59,17 +59,25 @@ bool CropMarkEngine::IsClippingMask(AIArtHandle art, AIArtHandle* outClipPath) {
     sAIArt->GetArtType(art, &type);
     if (type != kGroupArt) return false;
 
+    AIBoolean isClipped = false;
+    if (sAIGroup) {
+        sAIGroup->GetGroupClipped(art, &isClipped);
+    }
     ai::int32 attr = 0;
     sAIArt->GetArtUserAttr(art, kArtIsClipMask, &attr);
-    if ((attr & kArtIsClipMask) == 0) return false;
+    bool groupMarkedClip = (isClipped != false) || ((attr & kArtIsClipMask) != 0);
 
-    // Iterate children to find the clipping path
+    // Iterate children to find the clipping path (even if group attribute isn't reported consistently)
     AIArtHandle child = nullptr;
     sAIArt->GetArtFirstChild(art, &child);
     while (child) {
         ai::int32 childAttr = 0;
         sAIArt->GetArtUserAttr(child, kArtIsClipMask, &childAttr);
-        if (childAttr & kArtIsClipMask) {
+        bool childIsClip = (childAttr & kArtIsClipMask) != 0;
+        if (!childIsClip && groupMarkedClip && sAIArt->IsArtClipping) {
+            childIsClip = (sAIArt->IsArtClipping(child) != false);
+        }
+        if (childIsClip) {
             if (outClipPath) *outClipPath = child;
             return true;
         }
@@ -175,18 +183,103 @@ void CropMarkEngine::RemoveExistingCropMarks(AIArtHandle art) {
     }
 }
 
-AIRealRect CropMarkEngine::GetObjectBounds(AIArtHandle art, int boundsMode) {
+static AIRealRect GetObjectBoundsInternal(AIArtHandle art, int boundsMode, int depth) {
     AIRealRect rc = { 0, 0, 0, 0 };
-    if (!sAIArt || !art) return rc;
+    if (!sAIArt || !art || depth > 64) return rc;
 
-    // Check if object is a clipping group
-    AIArtHandle clipPath = nullptr;
-    if (IsClippingMask(art, &clipPath) && clipPath) {
-        art = clipPath;
+    short type = 0;
+    sAIArt->GetArtType(art, &type);
+    ai::int32 selfAttr = 0;
+    sAIArt->GetArtUserAttr(art, kArtIsClipMask | kArtHidden, &selfAttr);
+
+    if (type == kGroupArt) {
+        AIBoolean isClipped = false;
+        if (sAIGroup) {
+            sAIGroup->GetGroupClipped(art, &isClipped);
+        }
+        bool groupMarkedClip = (isClipped != false) || ((selfAttr & kArtIsClipMask) != 0);
+
+        if (depth <= 3) {
+            PluginLog("  [BoundsTree depth=%d] group=%p selfAttr=0x%X isClipped=%d",
+                      depth, art, selfAttr, (int)isClipped);
+        }
+
+        // 1. Collect clipping children first (even if groupMarkedClip wasn't reported by GetArtUserAttr)
+        AIRealRect clipUnion = { 0, 0, 0, 0 };
+        bool hasClip = false;
+        AIArtHandle child = nullptr;
+        sAIArt->GetArtFirstChild(art, &child);
+        int safety = 5000;
+        while (child && --safety > 0) {
+            ai::int32 childAttr = 0;
+            sAIArt->GetArtUserAttr(child, kArtIsClipMask | kArtHidden, &childAttr);
+            AIBoolean childIsArtClip = (sAIArt->IsArtClipping) ? sAIArt->IsArtClipping(child) : false;
+            bool isClipChild = ((childAttr & kArtIsClipMask) != 0) || (groupMarkedClip && childIsArtClip != false);
+
+            if (depth <= 3) {
+                short cType = 0;
+                sAIArt->GetArtType(child, &cType);
+                PluginLog("    [Child depth=%d] art=%p type=%d attr=0x%X isArtClip=%d",
+                          depth + 1, child, (int)cType, childAttr, (int)childIsArtClip);
+            }
+
+            if (isClipChild) {
+                AIRealRect cb = GetObjectBoundsInternal(child, boundsMode, depth + 1);
+                if (std::abs(cb.right - cb.left) > 0.0001 || std::abs(cb.top - cb.bottom) > 0.0001) {
+                    if (!hasClip) {
+                        clipUnion = cb;
+                        hasClip = true;
+                    } else {
+                        if (cb.left < clipUnion.left) clipUnion.left = cb.left;
+                        if (cb.right > clipUnion.right) clipUnion.right = cb.right;
+                        if (cb.bottom < clipUnion.bottom) clipUnion.bottom = cb.bottom;
+                        if (cb.top > clipUnion.top) clipUnion.top = cb.top;
+                    }
+                }
+            }
+            sAIArt->GetArtSibling(child, &child);
+        }
+        if (hasClip) {
+            if (depth <= 3) {
+                PluginLog("  [BoundsTree depth=%d] -> CLIP UNION L=%.2f T=%.2f R=%.2f B=%.2f",
+                          depth, clipUnion.left, clipUnion.top, clipUnion.right, clipUnion.bottom);
+            }
+            return clipUnion;
+        }
+
+        // 2. Regular group: recursively union visible non-guide children so nested clip groups
+        //    do not leak bounds of clipped-out objects
+        AIRealRect groupUnion = { 0, 0, 0, 0 };
+        bool hasChildBounds = false;
+        child = nullptr;
+        sAIArt->GetArtFirstChild(art, &child);
+        safety = 5000;
+        while (child && --safety > 0) {
+            ai::int32 childAttr = 0;
+            sAIArt->GetArtUserAttr(child, kArtHidden, &childAttr);
+            if ((childAttr & kArtHidden) == 0 && !CropMarkEngine::IsGuide(child) && !CropMarkEngine::IsCropMarksGroup(child)) {
+                AIRealRect cb = GetObjectBoundsInternal(child, boundsMode, depth + 1);
+                if (std::abs(cb.right - cb.left) > 0.0001 || std::abs(cb.top - cb.bottom) > 0.0001) {
+                    if (!hasChildBounds) {
+                        groupUnion = cb;
+                        hasChildBounds = true;
+                    } else {
+                        if (cb.left < groupUnion.left) groupUnion.left = cb.left;
+                        if (cb.right > groupUnion.right) groupUnion.right = cb.right;
+                        if (cb.bottom < groupUnion.bottom) groupUnion.bottom = cb.bottom;
+                        if (cb.top > groupUnion.top) groupUnion.top = cb.top;
+                    }
+                }
+            }
+            sAIArt->GetArtSibling(child, &child);
+        }
+        if (hasChildBounds) {
+            return groupUnion;
+        }
     }
 
     AIRealRect visBounds = { 0, 0, 0, 0 };
-    AIErr visErr = sAIArt->GetArtBounds(art, &visBounds);
+    sAIArt->GetArtBounds(art, &visBounds);
     if (visBounds.left > visBounds.right) std::swap(visBounds.left, visBounds.right);
     if (visBounds.bottom > visBounds.top) std::swap(visBounds.bottom, visBounds.top);
 
@@ -218,7 +311,11 @@ AIRealRect CropMarkEngine::GetObjectBounds(AIArtHandle art, int boundsMode) {
 
     if (rc.left > rc.right) std::swap(rc.left, rc.right);
     if (rc.bottom > rc.top) std::swap(rc.bottom, rc.top);
+    return rc;
+}
 
+AIRealRect CropMarkEngine::GetObjectBounds(AIArtHandle art, int boundsMode) {
+    AIRealRect rc = GetObjectBoundsInternal(art, boundsMode, 0);
     PluginLog("[GetObjectBounds] art=%p mode=%d -> L=%.2f, T=%.2f, R=%.2f, B=%.2f",
               art, boundsMode, rc.left, rc.top, rc.right, rc.bottom);
     return rc;
@@ -1507,8 +1604,12 @@ CropMarkResult CropMarkEngine::CreateCropMarks(const CropMarkParams& params) {
                 TextRangeRef textRange = nullptr;
                 if (sAITextFrame->GetATETextRange(textArt, &textRange) == kNoErr && textRange) {
                     ai::UnicodeString uText(infoText, kAIUTF8CharacterEncoding);
+                    auto asUni = uText.as_ASUnicode();
+                    if (sTextRange && !asUni.empty()) {
+                        auto insErr = sTextRange->InsertAfter_AsUnicode(textRange, asUni.c_str(), (ATETextDOM::Int32)asUni.length());
+                        PluginLog("[addDocInfo] InsertAfter_AsUnicode err=%d, len=%zu", (int)insErr, asUni.length());
+                    }
                     if (sTextRange) {
-                        sTextRange->InsertAfter_AsUnicode(textRange, uText.as_ASUnicode().c_str(), -1);
                         sTextRange->Release(textRange);
                         textRange = nullptr;
                     }

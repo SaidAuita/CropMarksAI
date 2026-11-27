@@ -10,6 +10,7 @@ extern "C" {
     AIMenuSuite*          sAIMenu = nullptr;
     AIUnicodeStringSuite* sAIUnicodeString = nullptr;
     AIArtSuite*           sAIArt = nullptr;
+    AIGroupSuite*         sAIGroup = nullptr;
     AIPathSuite*          sAIPath = nullptr;
     AIPathStyleSuite*     sAIPathStyle = nullptr;
     AICustomColorSuite*   sAICustomColor = nullptr;
@@ -52,6 +53,7 @@ static int32_t sAIPanelVer = 0;
 static int32_t sAIMenuVer = 0;
 static int32_t sAIUnicodeStringVer = 0;
 static int32_t sAIArtVer = 0;
+static int32_t sAIGroupVer = 0;
 static int32_t sAIPathVer = 0;
 static int32_t sAIPathStyleVer = 0;
 static int32_t sAICustomColorVer = 0;
@@ -138,6 +140,7 @@ SPErr AcquireSuites(SPBasicSuite* basic) {
     AcquireSuiteAuto(basic, kAIMenuSuite, kAIMenuSuiteVersion, (const void**)&sAIMenu, &sAIMenuVer);
     AcquireSuiteAuto(basic, kAIUnicodeStringSuite, kAIUnicodeStringSuiteVersion, (const void**)&sAIUnicodeString, &sAIUnicodeStringVer);
     AcquireSuiteAuto(basic, kAIArtSuite, kAIArtSuiteVersion, (const void**)&sAIArt, &sAIArtVer);
+    AcquireSuiteAuto(basic, kAIGroupSuite, kAIGroupSuiteVersion, (const void**)&sAIGroup, &sAIGroupVer);
     AcquireSuiteAuto(basic, kAIPathSuite, kAIPathSuiteVersion, (const void**)&sAIPath, &sAIPathVer);
     AcquireSuiteAuto(basic, kAIPathStyleSuite, kAIPathStyleSuiteVersion, (const void**)&sAIPathStyle, &sAIPathStyleVer);
     AcquireSuiteAuto(basic, kAICustomColorSuite, kAICustomColorSuiteVersion, (const void**)&sAICustomColor, &sAICustomColorVer);
@@ -183,6 +186,7 @@ void ReleaseSuites(SPBasicSuite* basic) {
     RELEASE_AUTO(kAIMenuSuite, sAIMenuVer, sAIMenu);
     RELEASE_AUTO(kAIUnicodeStringSuite, sAIUnicodeStringVer, sAIUnicodeString);
     RELEASE_AUTO(kAIArtSuite, sAIArtVer, sAIArt);
+    RELEASE_AUTO(kAIGroupSuite, sAIGroupVer, sAIGroup);
     RELEASE_AUTO(kAIPathSuite, sAIPathVer, sAIPath);
     RELEASE_AUTO(kAIPathStyleSuite, sAIPathStyleVer, sAIPathStyle);
     RELEASE_AUTO(kAICustomColorSuite, sAICustomColorVer, sAICustomColor);

@@ -4,7 +4,7 @@
 #include <commctrl.h>
 #include <windowsx.h>
 
-#define PLUGIN_VERSION_STR "v1.36"
+#define PLUGIN_VERSION_STR "v1.37"
 
 #pragma comment(lib, "comctl32.lib")
 
@@ -1384,10 +1384,10 @@ static LRESULT CALLBACK MakeCropMarksAIPanelProc(HWND hwnd, UINT msg, WPARAM wPa
 
                 // Pantones Tab Actions
                 case IDC_BTN_SCAN_SPOTS: {
-                    AppContext appContext;
-                    auto spots = CropMarkEngine::GetInstance().ScanDocumentPantones();
-                    ConfigManager::GetInstance().SetDocumentSpots(spots);
+                    AppContext appContext(MakeCropMarksAIPlugin::GetInstance().GetPluginRef());
+                    MakeCropMarksAIPlugin::GetInstance().EnsureSpotsScannedForCurrentDoc(true);
                     MakeCropMarksAIPlugin::GetInstance().PopulatePantonesList();
+                    auto& spots = ConfigManager::GetInstance().GetDocumentSpots();
                     char sbuf[128];
                     snprintf(sbuf, sizeof(sbuf), "Scanned: %zu spot color(s) found.", spots.size());
                     SetDlgItemTextA(hwnd, IDC_STATIC_STATUS, sbuf);
@@ -1563,10 +1563,14 @@ SPErr MakeCropMarksAIPlugin::StartupPlugin(void* message) {
     // 2. Add menu commands
     AddMenuItems();
 
-    // 3. Register theme change notifier
+    // 3. Register theme & document open/new notifiers
     if (sAINotifier) {
         sAINotifier->AddNotifier(m_pluginRef, "CropMarksAIPlugin",
                                  kAIUIBrightnessChangedNotifier, &m_hBrightnessNotifier);
+        sAINotifier->AddNotifier(m_pluginRef, "CropMarksAIPlugin_DocNew",
+                                 kAIDocumentNewNotifier, &m_hDocNewNotifier);
+        sAINotifier->AddNotifier(m_pluginRef, "CropMarksAIPlugin_DocOpened",
+                                 kAIDocumentOpenedNotifier, &m_hDocOpenedNotifier);
     }
 
     // 4. Install thread-level keyboard hook
@@ -1595,6 +1599,14 @@ SPErr MakeCropMarksAIPlugin::Notify(void* message) {
                 InvalidateRect(hChild, NULL, TRUE);
                 return TRUE;
             }, 0);
+        }
+    } else if ((m_hDocNewNotifier && notifMsg->notifier == m_hDocNewNotifier) ||
+               (m_hDocOpenedNotifier && notifMsg->notifier == m_hDocOpenedNotifier)) {
+        m_lastScannedDoc = nullptr;
+        ConfigManager::GetInstance().SetDocumentSpots({});
+        if (m_hPanelDlg && IsWindow(m_hPanelDlg) && m_currentTab == kTabPantones) {
+            EnsureSpotsScannedForCurrentDoc(true);
+            PopulatePantonesList();
         }
     }
     return kNoErr;
@@ -2003,10 +2015,8 @@ void MakeCropMarksAIPlugin::SwitchTab(int tabIndex) {
     UpdateTabVisibility();
 
     if (tabIndex == kTabPantones) {
-        if (ConfigManager::GetInstance().GetDocumentSpots().empty()) {
-            auto spots = CropMarkEngine::GetInstance().ScanDocumentPantones();
-            ConfigManager::GetInstance().SetDocumentSpots(spots);
-        }
+        AppContext appContext(m_pluginRef);
+        EnsureSpotsScannedForCurrentDoc(false);
         PopulatePantonesList();
     } else if (tabIndex == kTabSettings) {
         PopulateSettingsToUI();
@@ -2459,18 +2469,47 @@ void MakeCropMarksAIPlugin::ReadParamsFromUI(CropMarkParams& p) {
     p.regWhiteUnderlay = ConfigManager::GetInstance().GetRegWhiteUnderlay();
 }
 
+void MakeCropMarksAIPlugin::EnsureSpotsScannedForCurrentDoc(bool forceRescan) {
+    AIDocumentHandle curDoc = nullptr;
+    if (sAIDocument) {
+        sAIDocument->GetDocument(&curDoc);
+    }
+    if (!curDoc && sAIDocumentList) {
+        ai::int32 docCount = 0;
+        if (sAIDocumentList->Count(&docCount) == kNoErr && docCount > 0) {
+            sAIDocumentList->GetNthDocument(&curDoc, 0);
+        }
+    }
+    if (!forceRescan && curDoc && curDoc == m_lastScannedDoc) {
+        return;
+    }
+
+    bool sameDoc = (curDoc != nullptr && curDoc == m_lastScannedDoc);
+    auto prevSpots = ConfigManager::GetInstance().GetDocumentSpots();
+
+    auto spots = CropMarkEngine::GetInstance().ScanDocumentPantones();
+    if (sameDoc && !prevSpots.empty()) {
+        for (auto& sp : spots) {
+            for (const auto& old : prevSpots) {
+                if (_stricmp(sp.name.c_str(), old.name.c_str()) == 0) {
+                    sp.isSelected = old.isSelected;
+                    break;
+                }
+            }
+        }
+    }
+    ConfigManager::GetInstance().SetDocumentSpots(spots);
+    m_lastScannedDoc = curDoc;
+}
+
 void MakeCropMarksAIPlugin::ExecuteCreateMarks() {
     PluginLog("[ExecuteCreateMarks] START");
     AppContext appContext(m_pluginRef);
+    EnsureSpotsScannedForCurrentDoc(false);
     CropMarkParams p;
     ReadParamsFromUI(p);
     ConfigManager::GetInstance().SetActiveParams(p);
 
-    if (ConfigManager::GetInstance().GetDocumentSpots().empty()) {
-        auto spots = CropMarkEngine::GetInstance().ScanDocumentPantones();
-        ConfigManager::GetInstance().SetDocumentSpots(spots);
-        p.selectedSpots = spots;
-    }
     CropMarkResult res = CropMarkEngine::GetInstance().CreateCropMarks(p);
 
     if (m_hPanelDlg) {
@@ -2487,10 +2526,8 @@ void MakeCropMarksAIPlugin::ExecuteQuickApply() {
         return;
     }
 
-    if (ConfigManager::GetInstance().GetDocumentSpots().empty()) {
-        auto spots = CropMarkEngine::GetInstance().ScanDocumentPantones();
-        ConfigManager::GetInstance().SetDocumentSpots(spots);
-    }
+    AppContext appContext(m_pluginRef);
+    EnsureSpotsScannedForCurrentDoc(false);
     auto p = ConfigManager::GetInstance().GetActiveParams();
     p.selectedSpots = ConfigManager::GetInstance().GetDocumentSpots();
     CropMarkResult res = CropMarkEngine::GetInstance().CreateCropMarks(p);

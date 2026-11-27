@@ -43,6 +43,7 @@ public:
     void UpdateTabVisibility();
     void PopulateLayersCombo();
     void PopulatePantonesList();
+    void EnsureSpotsScannedForCurrentDoc(bool forceRescan = false);
     void UpdateSpotsFromList();
     static bool IsPopulatingSpots() { return s_isPopulatingSpots; }
     void ReadSettingsFromUI();
@@ -62,6 +63,9 @@ private:
     AIPanelRef        m_panelRef;
     HWND              m_hPanelDlg;
     AINotifierHandle  m_hBrightnessNotifier;
+    AINotifierHandle  m_hDocNewNotifier = nullptr;
+    AINotifierHandle  m_hDocOpenedNotifier = nullptr;
+    AIDocumentHandle  m_lastScannedDoc = nullptr;
 
     AIMenuItemHandle  m_hMenuWindow;
     AIMenuItemHandle  m_hMenuCreate;
