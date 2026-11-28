@@ -1636,6 +1636,30 @@ SPErr MakeCropMarksAIPlugin::ShutdownPlugin(void* message) {
         g_hKeyHook = NULL;
     }
 
+    if (m_hPanelDlg && IsWindow(m_hPanelDlg)) {
+        // Restore all child control WndProcs before panel teardown so late Win32 messages
+        // cannot dispatch into unloaded DLL memory after DLL_PROCESS_DETACH.
+        EnumChildWindows(m_hPanelDlg, [](HWND hChild, LPARAM) -> BOOL {
+            if (WNDPROC p = (WNDPROC)RemovePropA(hChild, "MK_OldProc")) {
+                SetWindowLongPtrA(hChild, GWLP_WNDPROC, (LONG_PTR)p);
+            }
+            if (WNDPROC p = (WNDPROC)RemovePropA(hChild, "MK_OldEditProc")) {
+                SetWindowLongPtrA(hChild, GWLP_WNDPROC, (LONG_PTR)p);
+            }
+            if (WNDPROC p = (WNDPROC)RemovePropA(hChild, "MK_OldComboProc")) {
+                SetWindowLongPtrA(hChild, GWLP_WNDPROC, (LONG_PTR)p);
+            }
+            RemovePropA(hChild, "MK_Primary");
+            return TRUE;
+        }, 0);
+
+        if (g_oldPanelProc) {
+            SetWindowLongPtrA(m_hPanelDlg, GWLP_WNDPROC, (LONG_PTR)g_oldPanelProc);
+            g_oldPanelProc = NULL;
+        }
+        m_hPanelDlg = NULL;
+    }
+
     if (m_panelRef && sAIPanel) {
         sAIPanel->Destroy(m_panelRef);
         m_panelRef = nullptr;
@@ -1646,6 +1670,7 @@ SPErr MakeCropMarksAIPlugin::ShutdownPlugin(void* message) {
     if (g_hBoldFont) { DeleteObject(g_hBoldFont); g_hBoldFont = NULL; }
     if (g_hSmallFont) { DeleteObject(g_hSmallFont); g_hSmallFont = NULL; }
     if (g_hPanelBgBrush) { DeleteObject(g_hPanelBgBrush); g_hPanelBgBrush = NULL; }
+    if (g_hInputBgBrush) { DeleteObject(g_hInputBgBrush); g_hInputBgBrush = NULL; }
 
     return kSPNoError;
 }
