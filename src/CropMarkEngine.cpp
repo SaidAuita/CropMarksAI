@@ -1534,20 +1534,10 @@ CropMarkResult CropMarkEngine::CreateCropMarks(const CropMarkParams& params) {
                     params.selectedSpots, params.barRepeatGap
                 );
             } else {
-                // Short sides in portrait: Top and Bottom horizontal bars
-                // Top side
+                // Short side in portrait: Top horizontal bar only
                 double topStartY = box.top + oVer + barsOff + patchHPt;
                 totalMarksCreated += CreateColorBarStrip(
                     grp, horizStartX, topStartY, true, patchWPt, patchHPt, horizLimitX,
-                    params.barMode, params.barStandard, params.barLength,
-                    params.barCyan, params.barMagenta, params.barYellow, params.barBlack,
-                    params.selectedSpots, params.barRepeatGap
-                );
-
-                // Bottom side
-                double botStartY = box.bottom - oVer - barsOff;
-                totalMarksCreated += CreateColorBarStrip(
-                    grp, horizStartX, botStartY, true, patchWPt, patchHPt, horizLimitX,
                     params.barMode, params.barStandard, params.barLength,
                     params.barCyan, params.barMagenta, params.barYellow, params.barBlack,
                     params.selectedSpots, params.barRepeatGap
