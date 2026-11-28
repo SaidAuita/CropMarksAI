@@ -1,6 +1,7 @@
 #include "Suites.h"
 #include <cstdio>
 #include <cstdarg>
+#include <cstring>
 
 extern "C" {
     SPBasicSuite*         sSPBasic = nullptr;
@@ -77,6 +78,66 @@ static int32_t sTextRangeVer = 0;
 static int32_t sCharFeaturesVer = 0;
 static int32_t sApplicationPaintVer = 0;
 
+static const AIUnicodeStringSuite* sAIUnicodeStringRaw = nullptr;
+static AIUnicodeStringSuite        sAIUnicodeStringProxy = {};
+
+int32_t GetCharFeaturesSuiteVer() { return sCharFeaturesVer; }
+int32_t GetDocumentSuiteVer()     { return sAIDocVer; }
+int32_t GetUnicodeStringSuiteVer(){ return sAIUnicodeStringVer; }
+
+static ai::int32 AIAPI ProxyUnicodeCompare_V8V9(const ai::UnicodeString& str, const ai::UnicodeString& str2) {
+    if (sAIUnicodeStringProxy.CompareSubString) {
+        return sAIUnicodeStringProxy.CompareSubString(str, 0, ai::UnicodeString::npos, str2, 0, ai::UnicodeString::npos);
+    }
+    return 0;
+}
+
+static ai::int32 AIAPI ProxyUnicodeCaseCompare_V8V9(const ai::UnicodeString& str, const ai::UnicodeString& str2) {
+    if (sAIUnicodeStringProxy.CaseCompareSubString) {
+        return sAIUnicodeStringProxy.CaseCompareSubString(str, 0, ai::UnicodeString::npos, str2, 0, ai::UnicodeString::npos);
+    }
+    return 0;
+}
+
+static void SetupUnicodeStringSuiteProxy() {
+    if (!sAIUnicodeStringRaw) {
+        sAIUnicodeString = nullptr;
+        return;
+    }
+    if (sAIUnicodeStringVer >= 10) {
+        sAIUnicodeString = const_cast<AIUnicodeStringSuite*>(sAIUnicodeStringRaw);
+        return;
+    }
+
+    std::memset(&sAIUnicodeStringProxy, 0, sizeof(sAIUnicodeStringProxy));
+    void* const* src = reinterpret_cast<void* const*>(sAIUnicodeStringRaw);
+    void** dst = reinterpret_cast<void**>(&sAIUnicodeStringProxy);
+
+    if (sAIUnicodeStringVer == 9) {
+        // AI 2024-2025 (40 slots): slots 10 (Compare) and 14 (CaseCompare) were added in v10
+        for (int i = 0; i <= 9; ++i) dst[i] = src[i];
+        dst[10] = reinterpret_cast<void*>(&ProxyUnicodeCompare_V8V9);
+        for (int i = 11; i <= 13; ++i) dst[i] = src[i - 1];
+        dst[14] = reinterpret_cast<void*>(&ProxyUnicodeCaseCompare_V8V9);
+        for (int i = 15; i <= 41; ++i) dst[i] = src[i - 2];
+        PluginLog("  [UnicodeString Proxy] Activated v9 -> v10 vtable bridge");
+    } else {
+        // AI 2020-2023 (v8, 38 slots): also lacks 2 slots before HasSurrogates
+        for (int i = 0; i <= 9; ++i) dst[i] = src[i];
+        dst[10] = reinterpret_cast<void*>(&ProxyUnicodeCompare_V8V9);
+        for (int i = 11; i <= 13; ++i) dst[i] = src[i - 1];
+        dst[14] = reinterpret_cast<void*>(&ProxyUnicodeCaseCompare_V8V9);
+        for (int i = 15; i <= 31; ++i) dst[i] = src[i - 2];
+        dst[32] = src[30]; // Resize
+        dst[35] = src[31]; // SubStr
+        dst[36] = src[32]; // SwapStr
+        for (int i = 37; i <= 41; ++i) dst[i] = src[i - 4]; // HasSurrogates..Normalize
+        PluginLog("  [UnicodeString Proxy] Activated v%d -> v10 vtable bridge", sAIUnicodeStringVer);
+    }
+
+    sAIUnicodeString = &sAIUnicodeStringProxy;
+}
+
 void PluginLog(const char* fmt, ...) {
     char buf[1024];
     va_list args;
@@ -110,8 +171,11 @@ static SPErr AcquireSuiteAuto(SPBasicSuite* basic, const char* name, int32_t pre
     }
 
     // Dynamic fallback version scan across supported Illustrator versions
-    for (int32_t v = 30; v >= 1; --v) {
+    int32_t maxVer = (preferredVer > 30) ? preferredVer : 30;
+    for (int32_t v = maxVer; v >= 1; --v) {
         if (v == preferredVer) continue;
+        // Skip unlikely middle range for 100+ ATE suite versions to keep startup instant
+        if (preferredVer >= 100 && v < 100 && v > 10) continue;
         err = basic->AcquireSuite(name, v, suitePtr);
         if (err == kSPNoError && *suitePtr) {
             *outVer = v;
@@ -120,7 +184,7 @@ static SPErr AcquireSuiteAuto(SPBasicSuite* basic, const char* name, int32_t pre
         }
     }
 
-    PluginLog("  [ACQUIRE FAIL] Could not acquire %s (tested versions 1..30)", name);
+    PluginLog("  [ACQUIRE FAIL] Could not acquire %s (tested versions 1..%d)", name, maxVer);
     *suitePtr = nullptr;
     *outVer = 0;
     return 1;
@@ -138,7 +202,8 @@ SPErr AcquireSuites(SPBasicSuite* basic) {
     AcquireSuiteAuto(basic, kSPBlocksSuite, kSPBlocksSuiteVersion, (const void**)&sSPBlocks, &sSPBlocksVer);
     AcquireSuiteAuto(basic, kAIPanelSuite, kAIPanelSuiteVersion, (const void**)&sAIPanel, &sAIPanelVer);
     AcquireSuiteAuto(basic, kAIMenuSuite, kAIMenuSuiteVersion, (const void**)&sAIMenu, &sAIMenuVer);
-    AcquireSuiteAuto(basic, kAIUnicodeStringSuite, kAIUnicodeStringSuiteVersion, (const void**)&sAIUnicodeString, &sAIUnicodeStringVer);
+    AcquireSuiteAuto(basic, kAIUnicodeStringSuite, kAIUnicodeStringSuiteVersion, (const void**)&sAIUnicodeStringRaw, &sAIUnicodeStringVer);
+    SetupUnicodeStringSuiteProxy();
     AcquireSuiteAuto(basic, kAIArtSuite, kAIArtSuiteVersion, (const void**)&sAIArt, &sAIArtVer);
     AcquireSuiteAuto(basic, kAIGroupSuite, kAIGroupSuiteVersion, (const void**)&sAIGroup, &sAIGroupVer);
     AcquireSuiteAuto(basic, kAIPathSuite, kAIPathSuiteVersion, (const void**)&sAIPath, &sAIPathVer);
@@ -184,7 +249,12 @@ void ReleaseSuites(SPBasicSuite* basic) {
     RELEASE_AUTO(kSPBlocksSuite, sSPBlocksVer, sSPBlocks);
     RELEASE_AUTO(kAIPanelSuite, sAIPanelVer, sAIPanel);
     RELEASE_AUTO(kAIMenuSuite, sAIMenuVer, sAIMenu);
-    RELEASE_AUTO(kAIUnicodeStringSuite, sAIUnicodeStringVer, sAIUnicodeString);
+    if (sAIUnicodeStringRaw && sAIUnicodeStringVer > 0) {
+        basic->ReleaseSuite(kAIUnicodeStringSuite, sAIUnicodeStringVer);
+        sAIUnicodeStringRaw = nullptr;
+        sAIUnicodeString = nullptr;
+        sAIUnicodeStringVer = 0;
+    }
     RELEASE_AUTO(kAIArtSuite, sAIArtVer, sAIArt);
     RELEASE_AUTO(kAIGroupSuite, sAIGroupVer, sAIGroup);
     RELEASE_AUTO(kAIPathSuite, sAIPathVer, sAIPath);

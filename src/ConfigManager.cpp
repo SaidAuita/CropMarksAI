@@ -206,6 +206,7 @@ CropMarkParams ConfigManager::GetActiveParams() const {
     p.barStandard = m_barStandard;
     p.docInfo = m_docInfo;
     p.docInfoTranslit = m_docInfoTranslit;
+    p.docInfoWithBars = m_docInfoWithBars;
 
     // Advanced Color Bar settings
     p.barMode = m_barMode;
@@ -329,6 +330,7 @@ void ConfigManager::LoadPresetsFromJson() {
         m_presets[i].params.barStandard = getInt("barStandard", m_barStandard);
         m_presets[i].params.docInfo = getBool("docInfo", m_docInfo);
         m_presets[i].params.docInfoTranslit = getBool("docInfoTranslit", m_docInfoTranslit);
+        m_presets[i].params.docInfoWithBars = getBool("docInfoWithBars", m_docInfoWithBars);
         m_presets[i].params.boundsMode = getInt("boundsMode", m_presets[i].params.boundsMode);
         m_presets[i].params.groupMode = getInt("groupMode", m_presets[i].params.groupMode);
         m_presets[i].params.targetMode = getInt("targetMode", m_presets[i].params.targetMode);
@@ -404,6 +406,7 @@ void ConfigManager::SavePresetsToJson() {
         file << "      \"barStandard\": " << p.params.barStandard << ",\n";
         file << "      \"docInfo\": " << (p.params.docInfo ? "true" : "false") << ",\n";
         file << "      \"docInfoTranslit\": " << (p.params.docInfoTranslit ? "true" : "false") << ",\n";
+        file << "      \"docInfoWithBars\": " << (p.params.docInfoWithBars ? "true" : "false") << ",\n";
         file << "      \"boundsMode\": " << p.params.boundsMode << ",\n";
         file << "      \"groupMode\": " << p.params.groupMode << ",\n";
         file << "      \"targetMode\": " << p.params.targetMode << ",\n";
@@ -470,6 +473,7 @@ void ConfigManager::Load() {
     m_barStandard = GetPrivateProfileIntA("Prepress", "BarStandard", kStandardISO12647_2, ini.c_str());
     m_docInfo = (GetPrivateProfileIntA("Prepress", "DocInfo", 0, ini.c_str()) != 0);
     m_docInfoTranslit = (GetPrivateProfileIntA("Prepress", "DocInfoTranslit", 0, ini.c_str()) != 0);
+    m_docInfoWithBars = (GetPrivateProfileIntA("Prepress", "DocInfoWithBars", 1, ini.c_str()) != 0);
 
     // Color Bar Advanced settings
     m_barMode = GetPrivateProfileIntA("ColorBars", "BarMode", kColorBar100Solids, ini.c_str());
@@ -527,6 +531,7 @@ void ConfigManager::Save() {
     WritePrivateProfileStringA("Prepress", "BarStandard", std::to_string(m_barStandard).c_str(), ini.c_str());
     WritePrivateProfileStringA("Prepress", "DocInfo", m_docInfo ? "1" : "0", ini.c_str());
     WritePrivateProfileStringA("Prepress", "DocInfoTranslit", m_docInfoTranslit ? "1" : "0", ini.c_str());
+    WritePrivateProfileStringA("Prepress", "DocInfoWithBars", m_docInfoWithBars ? "1" : "0", ini.c_str());
 
     // Color Bar Advanced settings
     WritePrivateProfileStringA("ColorBars", "BarMode", std::to_string(m_barMode).c_str(), ini.c_str());
@@ -1117,7 +1122,8 @@ bool ConfigManager::ExportSettingsToFile(HWND parentHwnd, const std::string& fil
     out << "    \"regPositions\": " << m_regPositions << ",\n";
     out << "    \"regWhiteUnderlay\": " << (m_regWhiteUnderlay ? "true" : "false") << ",\n";
     out << "    \"docInfo\": " << (m_docInfo ? "true" : "false") << ",\n";
-    out << "    \"docInfoTranslit\": " << (m_docInfoTranslit ? "true" : "false") << "\n";
+    out << "    \"docInfoTranslit\": " << (m_docInfoTranslit ? "true" : "false") << ",\n";
+    out << "    \"docInfoWithBars\": " << (m_docInfoWithBars ? "true" : "false") << "\n";
     out << "  },\n";
 
     // Embed the presets array
@@ -1250,6 +1256,7 @@ bool ConfigManager::ImportSettingsFromFile(HWND parentHwnd, const std::string& f
     m_regWhiteUnderlay = getBool("regWhiteUnderlay", m_regWhiteUnderlay);
     m_docInfo = getBool("docInfo", m_docInfo);
     m_docInfoTranslit = getBool("docInfoTranslit", m_docInfoTranslit);
+    m_docInfoWithBars = getBool("docInfoWithBars", m_docInfoWithBars);
 
     m_activePresetIndex = getInt("activePresetIndex", m_activePresetIndex);
     if (m_activePresetIndex < 0 || m_activePresetIndex >= 8) m_activePresetIndex = 0;

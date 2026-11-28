@@ -52,6 +52,7 @@ public:
     std::string GetLayerName() const { return m_layerName; }
     bool GetDocInfo() const { return m_docInfo; }
     bool GetDocInfoTranslit() const { return m_docInfoTranslit; }
+    bool GetDocInfoWithBars() const { return m_docInfoWithBars; }
 
     void SetCropMarksLayerOrder(int order) { m_cropMarksLayerOrder = order; }
     void SetCrossMarksLayerOrder(int order) { m_crossMarksLayerOrder = order; }
@@ -64,6 +65,7 @@ public:
     void SetLayerName(const std::string& name) { m_layerName = name; }
     void SetDocInfo(bool enabled) { m_docInfo = enabled; }
     void SetDocInfoTranslit(bool enabled) { m_docInfoTranslit = enabled; }
+    void SetDocInfoWithBars(bool enabled) { m_docInfoWithBars = enabled; }
 
     // Color Bars Advanced Settings
     int GetBarMode() const { return m_barMode; }
@@ -157,6 +159,7 @@ private:
     std::string m_layerName = "";
     bool m_docInfo = false;
     bool m_docInfoTranslit = false;
+    bool m_docInfoWithBars = true;
 
     // Color Bar Settings
     int m_barMode = kColorBar100Solids;

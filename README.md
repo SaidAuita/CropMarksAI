@@ -3,7 +3,7 @@
 [![Adobe Illustrator](https://img.shields.io/badge/Adobe%20Illustrator-CC%202020%20--%202026%2B-FF9A00?style=for-the-badge&logo=adobeillustrator&logoColor=white)](https://www.adobe.com/products/illustrator.html)
 [![Language](https://img.shields.io/badge/Language-C%2B%2B17-00599C?style=for-the-badge&logo=c%2B%2B&logoColor=white)](https://isocpp.org/)
 [![Platform](https://img.shields.io/badge/Platform-Windows%20x64-blue?style=for-the-badge&logo=windows&logoColor=white)](https://microsoft.com)
-[![Version](https://img.shields.io/badge/Version-v1.37-success?style=for-the-badge)](https://github.com/SaidAuita/CropMarksAI/releases)
+[![Version](https://img.shields.io/badge/Version-v1.38-success?style=for-the-badge)](https://github.com/SaidAuita/CropMarksAI/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](LICENSE)
 
 > **High-performance native C++ prepress plugin (`.aip`) for Adobe Illustrator (CC 2020 – 2026+ x64).**  
@@ -24,8 +24,16 @@
 
 > [!TIP]
 > ### 📥 Download Latest Release
-> **[CropMarksAI_Plugin_v1.37.zip](https://github.com/SaidAuita/CropMarksAI/releases/download/v1.37/CropMarksAI_Plugin_v1.37.zip)** *(Direct ZIP package with one-click installer)*  
-> Full release notes & assets: **[Release v1.37](https://github.com/SaidAuita/CropMarksAI/releases/tag/v1.37)**
+> **[CropMarksAI_Plugin_v1.38.zip](https://github.com/SaidAuita/CropMarksAI/releases/download/v1.38/CropMarksAI_Plugin_v1.38.zip)** *(Direct ZIP package with one-click installer)*  
+> Full release notes & assets: **[Release v1.38](https://github.com/SaidAuita/CropMarksAI/releases/tag/v1.38)**
+
+### ✨ What's New in v1.38
+- **Full Backward Compatibility (Illustrator CC 2020 – 2025)**:
+  - Added a `v8`/`v9` → `v10` vtable bridge for `AIUnicodeStringSuite` so spot/Pantone color names, document filenames, and `Document Info` text render properly in Adobe Illustrator 2020–2025 (fixing empty Pantone lists and empty Document Info frames in AI 2024).
+  - Extended `AcquireSuiteAuto` fallback range and added multi-version `ATE::CharFeaturesSuite` (`v103` / `v102` / `v101`) support for 5 pt Registration styling in older Illustrator releases.
+  - Added `AIDocumentSuite` version guard for `GetDocumentFileName` on pre-2023 releases.
+- **Document Info Side Placement Option**:
+  - Added a separate checkbox **"Place info alongside color bars"** under `DOCUMENT INFO` (enabled by default): when color bars are placed on the left side instead of top (e.g., portrait long-side bars), Document Info automatically rotates +90° (bottom-to-top) and aligns 1 mm outside the left color bar. Uncheck to always force top placement.
 
 ### ✨ What's New in v1.37
 - **Clipping Masks Support in Nested Groups**: Fixed bounding box calculation for clipping masks (`kArtIsClipMask` / `GetGroupClipped` / `IsArtClipping`) — crop marks are now strictly placed along the visible clipping contour even when masks are nested inside regular groups, ignoring clipped-out hidden artwork.
@@ -208,8 +216,16 @@ Special thanks to **Sergey Anosov** for his foundational prepress scripting work
 
 > [!TIP]
 > ### 📥 Скачать последнюю версию плагина
-> **[CropMarksAI_Plugin_v1.37.zip](https://github.com/SaidAuita/CropMarksAI/releases/download/v1.37/CropMarksAI_Plugin_v1.37.zip)** *(Прямая загрузка архива с автоматическим установщиком)*  
-> Страница релиза и список изменений: **[Релиз v1.37](https://github.com/SaidAuita/CropMarksAI/releases/tag/v1.37)**
+> **[CropMarksAI_Plugin_v1.38.zip](https://github.com/SaidAuita/CropMarksAI/releases/download/v1.38/CropMarksAI_Plugin_v1.38.zip)** *(Прямая загрузка архива с автоматическим установщиком)*  
+> Страница релиза и список изменений: **[Релиз v1.38](https://github.com/SaidAuita/CropMarksAI/releases/tag/v1.38)**
+
+### ✨ Что нового в v1.38
+- **Полная обратная совместимость с Adobe Illustrator CC 2020 – 2025**:
+  - Добавлен vtable-адаптер `v8`/`v9` → `v10` для `AIUnicodeStringSuite`, устраняющий возврат пустых строк в старых версиях Illustrator (включая AI 2024): теперь корректно считываются имена пантонов, имя файла и текст блока `Document Info`.
+  - Расширен поиск версий сьютов (`AcquireSuiteAuto`) и добавлена поддержка `ATE::CharFeaturesSuite` версий `101` / `102` / `103` для оформления `Document Info` шрифтом 5 pt в цвете Registration.
+  - Добавлена проверка версии `AIDocumentSuite` при чтении имени файла документа в ранних версиях.
+- **Выбор расположения Document Info вместе со шкалами**:
+  - В раздел `DOCUMENT INFO` добавлен отдельный чекбокс **«Place info alongside color bars»** (по умолчанию включён): если шкалы находятся не сверху, а слева (например, длинная шкала в портретном макете), текст Document Info автоматически поворачивается на +90° (снизу вверх) и выводится вдоль левой шкалы с отступом 1 мм. Если снять галочку — текст всегда выводится сверху.
 
 ### ✨ Что нового в v1.37
 - **Корректная работа с обтравочными масками (включая вложенные группы)**: Исправлен расчёт границ объектов с масками (`AIGroupSuite::GetGroupClipped`, `IsArtClipping`, рекурсивный обход групп). Метки обреза теперь строятся строго по контуру маски и не захватывают скрытые за маской элементы.

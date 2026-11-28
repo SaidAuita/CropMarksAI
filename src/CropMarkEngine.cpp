@@ -1562,13 +1562,26 @@ CropMarkResult CropMarkEngine::CreateCropMarks(const CropMarkParams& params) {
         const double ptPerMm = 2.83464567;
         const double patchHPt = CropMarkParams::UnitToPoints(params.patchHeight, params.units);
         const double barsOff = CropMarkParams::UnitToPoints(params.barsOffset, params.units);
+        const double w = box.right - box.left;
+        const double h = box.top - box.bottom;
+        const bool isLandscape = (w >= h);
+        const bool hasTopBar = (isLandscape && params.colorBarsLong) || (!isLandscape && params.colorBarsShort);
+        const bool hasLeftBar = (!isLandscape && params.colorBarsLong) || (isLandscape && params.colorBarsShort);
+        const bool placeLeftVertical = params.docInfoWithBars && !hasTopBar && hasLeftBar;
+
         const double horizStartX = (box.left + bHor) + 3.0 * ptPerMm;
         const double topBarStartY = box.top + oVer + barsOff + patchHPt;
-        const double textAnchorY = topBarStartY + 1.0 * ptPerMm;
-        const double textAnchorX = horizStartX;
+
+        double textAnchorX = horizStartX;
+        double textAnchorY = topBarStartY + 1.0 * ptPerMm;
+        if (placeLeftVertical) {
+            const double leftBarOuterX = box.left - oHor - barsOff - patchHPt;
+            textAnchorX = leftBarOuterX - 1.0 * ptPerMm;
+            textAnchorY = (box.bottom + bVer) + 3.0 * ptPerMm;
+        }
 
         std::string docName = "Untitled";
-        if (sAIDocument) {
+        if (sAIDocument && GetDocumentSuiteVer() >= 20) {
             ai::UnicodeString aiDocName;
             if (sAIDocument->GetDocumentFileName(aiDocName) == kNoErr && !aiDocName.empty()) {
                 std::string full = aiDocName.as_UTF8();
@@ -1617,28 +1630,51 @@ CropMarkResult CropMarkEngine::CreateCropMarks(const CropMarkParams& params) {
                 // Acquire fresh text range spanning the newly inserted characters
                 if (sAITextFrame->GetATETextRange(textArt, &textRange) == kNoErr && textRange) {
                     if (sCharFeatures) {
-                        ATE::CharFeaturesRef charFeatures = nullptr;
-                        if (sCharFeatures->Initialize(&charFeatures) == 0 && charFeatures) {
-                            sCharFeatures->SetFontSize(charFeatures, 5.0f);
-                            if (sAICustomColor && sAIATEPaint) {
-                                AICustomColorHandle hReg = nullptr;
-                                if (sAICustomColor->GetCurrentRegistrationColor(&hReg) == kNoErr && hReg) {
-                                    AIColor regColor;
-                                    regColor.kind = kCustomColor;
-                                    regColor.c.c.color = hReg;
-                                    regColor.c.c.tint = 0.0f;
-                                    ATE::ApplicationPaintRef paintRef = nullptr;
-                                    if (sAIATEPaint->CreateATEApplicationPaint(&regColor, &paintRef) == kNoErr && paintRef) {
-                                        sCharFeatures->SetFillColor(charFeatures, paintRef);
-                                        if (sApplicationPaint) sApplicationPaint->Release(paintRef);
+                        auto applyCharStyle = [&](auto* cfSuite) {
+                            ATE::CharFeaturesRef charFeatures = nullptr;
+                            if (cfSuite->Initialize(&charFeatures) == 0 && charFeatures) {
+                                cfSuite->SetFontSize(charFeatures, 5.0f);
+                                if (sAICustomColor && sAIATEPaint) {
+                                    AICustomColorHandle hReg = nullptr;
+                                    if (sAICustomColor->GetCurrentRegistrationColor(&hReg) == kNoErr && hReg) {
+                                        AIColor regColor;
+                                        regColor.kind = kCustomColor;
+                                        regColor.c.c.color = hReg;
+                                        regColor.c.c.tint = 0.0f;
+                                        ATE::ApplicationPaintRef paintRef = nullptr;
+                                        if (sAIATEPaint->CreateATEApplicationPaint(&regColor, &paintRef) == kNoErr && paintRef) {
+                                            cfSuite->SetFillColor(charFeatures, paintRef);
+                                            if (sApplicationPaint) sApplicationPaint->Release(paintRef);
+                                        }
                                     }
                                 }
+                                if (sTextRange) sTextRange->SetLocalCharFeatures(textRange, charFeatures);
+                                cfSuite->Release(charFeatures);
                             }
-                            if (sTextRange) sTextRange->SetLocalCharFeatures(textRange, charFeatures);
-                            sCharFeatures->Release(charFeatures);
+                        };
+
+                        int32_t cfVer = GetCharFeaturesSuiteVer();
+                        if (cfVer >= 103 || cfVer == 3) {
+                            applyCharStyle(sCharFeatures);
+                        } else if (cfVer == 102 || cfVer == 2) {
+                            applyCharStyle(reinterpret_cast<ATE::CharFeatures2Suite*>(sCharFeatures));
+                        } else if (cfVer > 0) {
+                            applyCharStyle(reinterpret_cast<ATE::CharFeatures1Suite*>(sCharFeatures));
                         }
                     }
                     if (sTextRange) sTextRange->Release(textRange);
+                }
+                if (placeLeftVertical && sAITransformArt) {
+                    // Rotate +90 deg CCW around (textAnchorX, textAnchorY) so text reads bottom-to-top
+                    // and glyphs extend outward (-X) away from the left color bar
+                    AIRealMatrix rotMat;
+                    rotMat.a = 0.0f;
+                    rotMat.b = 1.0f;
+                    rotMat.c = -1.0f;
+                    rotMat.d = 0.0f;
+                    rotMat.tx = (AIReal)(textAnchorX + textAnchorY);
+                    rotMat.ty = (AIReal)(textAnchorY - textAnchorX);
+                    sAITransformArt->TransformArt(textArt, &rotMat, 1.0f, kTransformObjects);
                 }
                 sAIArt->SetArtName(textArt, ai::UnicodeString("Document Info"));
                 sAIArt->SetArtUserAttr(textArt, kArtSelected, 0);

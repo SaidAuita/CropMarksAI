@@ -132,6 +132,7 @@ struct CropMarkParams {
     int barStandard = kStandardISO12647_2;
     bool docInfo = false;
     bool docInfoTranslit = false;
+    bool docInfoWithBars = true;
     int boundsMode = kBoundsGeometric;
     int groupMode = kGroupMarksOnly;
     int targetMode = kTargetEachObject;

@@ -8,7 +8,7 @@
 - **Базовый SDK**: Официальный Adobe Illustrator 2026 SDK (`c:\_CODE\illustrator\SDK\AI_2026_SDK_Win\Adobe Illustrator 2026 SDK`)
 - **Назначение**: Профессиональная генерация обрезных полиграфических меток реза, приводных крестов по модели Аносова и настраиваемых контрольных шкал (включая 100% плашки без полутонов и сканирование спот-цветов / пантонов) в векторе высокой точности (< 1 мс).
 - **Автор**: SaidAuita ([ph-cu-s.com/tools](https://ph-cu-s.com/tools))
-- **Текущая версия**: `v1.37`
+- **Текущая версия**: `v1.38`
 
 ---
 
@@ -139,6 +139,15 @@ c:\_CODE\illustrator\MakeCropMarksAI_plugin\
 ---
 
 ## 4. История изменений (Changelog)
+
+### v1.38 (CropMarksAI Plus, 2026-11-28)
+- **Полная обратная совместимость с Adobe Illustrator CC 2020 – 2025 (исправление пантонов и Document Info в AI 2024 и ниже)**:
+  - В `Suites.cpp` добавлен vtable-адаптер (`SetupUnicodeStringSuiteProxy`) для `AIUnicodeStringSuite` версий `v9` (AI 2024–2025) и `v8` (AI 2020–2023) -> `v10`: устранено смещение указателей функций, из-за которого `GetCustomColorName`, `GetDocumentFileName` и `as_ASUnicode()` возвращали пустые строки в старых версиях Illustrator.
+  - В `AcquireSuiteAuto` расширен диапазон поиска legacy-версий (включая `ATE CharFeatures Suite` версий `101`/`102`, ранее обрывавшийся на `1..30`).
+  - В `CropMarkEngine.cpp` (`addDocInfo`) добавлена поддержка структур `ATE::CharFeaturesSuite` (v103), `ATE::CharFeatures2Suite` (v102) и `ATE::CharFeatures1Suite` (v101), а также защита вызова `GetDocumentFileName` по версии `AIDocumentSuite` (`>= 20`).
+- **Направление Document Info рядом со шкалами (`Place info alongside color bars`)**:
+  - На вкладку `[ Settings ]` в блок `DOCUMENT INFO` добавлен отдельный чекбокс `Place info alongside color bars` (`docInfoWithBars`, по умолчанию включён).
+  - Если шкалы расположены не сверху (например, слева при портретной ориентации с длинной шкалой или при альбомной с короткой), текст Document Info автоматически поворачивается на +90° (снизу вверх) и размещается с отступом 1 мм вдоль левой шкалы. При снятой галочке или отсутствии боковых шкал текст выводится сверху.
 
 ### v1.37 (CropMarksAI Plus, 2026-11-27)
 - **Исправление обтравочных масок (Clipping Masks) в группах**:

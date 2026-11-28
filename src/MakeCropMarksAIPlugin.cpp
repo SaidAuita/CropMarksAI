@@ -4,7 +4,7 @@
 #include <commctrl.h>
 #include <windowsx.h>
 
-#define PLUGIN_VERSION_STR "v1.37"
+#define PLUGIN_VERSION_STR "v1.38"
 
 #pragma comment(lib, "comctl32.lib")
 
@@ -69,6 +69,7 @@
 #define IDC_LBL_SET_DOC_HEADER    2740
 #define IDC_CHK_SET_DOC_INFO      2741
 #define IDC_CHK_SET_DOC_TRANSLIT  2742
+#define IDC_CHK_SET_DOC_WITH_BARS 2750
 #define IDC_LBL_SET_HK_HEADER     2743
 #define IDC_STATIC_SET_HK_INFO    2744
 #define IDC_BTN_SET_HOTKEYS       2745
@@ -311,6 +312,8 @@ static void EnsureFontsForScale(HWND hwnd, float scale) {
         if (hLblDocInfo) SendMessage(hLblDocInfo, WM_SETFONT, (WPARAM)g_hUIFont, TRUE);
         HWND hLblDocTrans = GetDlgItem(hwnd, IDC_CHK_SET_DOC_TRANSLIT + 1000);
         if (hLblDocTrans) SendMessage(hLblDocTrans, WM_SETFONT, (WPARAM)g_hUIFont, TRUE);
+        HWND hLblDocBars = GetDlgItem(hwnd, IDC_CHK_SET_DOC_WITH_BARS + 1000);
+        if (hLblDocBars) SendMessage(hLblDocBars, WM_SETFONT, (WPARAM)g_hUIFont, TRUE);
 
         const int settingGeneralIds[] = {
             IDC_LBL_SET_BAR_MODE, IDC_CMB_BAR_MODE,
@@ -983,29 +986,30 @@ static void RelayoutPanel(HWND hwnd) {
 
     // Doc Info Section
     HWND hLblSetDoc = GetDlgItem(hwnd, IDC_LBL_SET_DOC_HEADER);
-    if (hLblSetDoc) SetWindowPos(hLblSetDoc, NULL, pad, S(362), contentW, S(18), SWP_NOZORDER);
-    moveCheckFull(IDC_CHK_SET_DOC_INFO, S(380));
-    moveCheckFull(IDC_CHK_SET_DOC_TRANSLIT, S(400));
+    if (hLblSetDoc) SetWindowPos(hLblSetDoc, NULL, pad, S(360), contentW, S(16), SWP_NOZORDER);
+    moveCheckFull(IDC_CHK_SET_DOC_INFO, S(377));
+    moveCheckFull(IDC_CHK_SET_DOC_TRANSLIT, S(395));
+    moveCheckFull(IDC_CHK_SET_DOC_WITH_BARS, S(413));
 
     // Hotkeys Section
     HWND hLblSetHk = GetDlgItem(hwnd, IDC_LBL_SET_HK_HEADER);
-    if (hLblSetHk) SetWindowPos(hLblSetHk, NULL, pad, S(424), contentW, S(18), SWP_NOZORDER);
+    if (hLblSetHk) SetWindowPos(hLblSetHk, NULL, pad, S(436), contentW, S(16), SWP_NOZORDER);
     HWND hSetHkInfo = GetDlgItem(hwnd, IDC_STATIC_SET_HK_INFO);
-    if (hSetHkInfo) SetWindowPos(hSetHkInfo, NULL, pad, S(442), contentW, S(16), SWP_NOZORDER);
+    if (hSetHkInfo) SetWindowPos(hSetHkInfo, NULL, pad, S(453), contentW, S(15), SWP_NOZORDER);
 
     int halfBtnW = (contentW - S(4)) / 2;
     HWND hBtnHotkeys = GetDlgItem(hwnd, IDC_BTN_SET_HOTKEYS);
     HWND hBtnSaveDef = GetDlgItem(hwnd, IDC_BTN_SET_SAVE_DEFAULTS);
-    if (hBtnHotkeys) SetWindowPos(hBtnHotkeys, NULL, pad, S(464), halfBtnW, S(24), SWP_NOZORDER);
-    if (hBtnSaveDef) SetWindowPos(hBtnSaveDef, NULL, pad + halfBtnW + S(4), S(464), contentW - halfBtnW - S(4), S(24), SWP_NOZORDER);
+    if (hBtnHotkeys) SetWindowPos(hBtnHotkeys, NULL, pad, S(472), halfBtnW, S(23), SWP_NOZORDER);
+    if (hBtnSaveDef) SetWindowPos(hBtnSaveDef, NULL, pad + halfBtnW + S(4), S(472), contentW - halfBtnW - S(4), S(23), SWP_NOZORDER);
 
     HWND hBtnExport = GetDlgItem(hwnd, IDC_BTN_SET_EXPORT);
     HWND hBtnImport = GetDlgItem(hwnd, IDC_BTN_SET_IMPORT);
-    if (hBtnExport) SetWindowPos(hBtnExport, NULL, pad, S(492), halfBtnW, S(24), SWP_NOZORDER);
-    if (hBtnImport) SetWindowPos(hBtnImport, NULL, pad + halfBtnW + S(4), S(492), contentW - halfBtnW - S(4), S(24), SWP_NOZORDER);
+    if (hBtnExport) SetWindowPos(hBtnExport, NULL, pad, S(498), halfBtnW, S(23), SWP_NOZORDER);
+    if (hBtnImport) SetWindowPos(hBtnImport, NULL, pad + halfBtnW + S(4), S(498), contentW - halfBtnW - S(4), S(23), SWP_NOZORDER);
 
     HWND hBtnSettingsApply = GetDlgItem(hwnd, IDC_BTN_SETTINGS_APPLY);
-    if (hBtnSettingsApply) SetWindowPos(hBtnSettingsApply, NULL, pad, S(520), contentW, createH, SWP_NOZORDER);
+    if (hBtnSettingsApply) SetWindowPos(hBtnSettingsApply, NULL, pad, S(525), contentW, createH, SWP_NOZORDER);
 
     // ==========================================
     // COMMON FOOTER
@@ -1370,7 +1374,7 @@ static LRESULT CALLBACK MakeCropMarksAIPanelProc(HWND hwnd, UINT msg, WPARAM wPa
                     return 0;
                 }
 
-                // Process Inks Checkboxes
+                // Process Inks & Doc Info Checkboxes (apply immediately)
                 case IDC_CHK_INK_C:
                 case IDC_CHK_INK_M:
                 case IDC_CHK_INK_Y:
@@ -1379,6 +1383,18 @@ static LRESULT CALLBACK MakeCropMarksAIPanelProc(HWND hwnd, UINT msg, WPARAM wPa
                     ConfigManager::GetInstance().SetBarMagenta(IsDlgButtonChecked(hwnd, IDC_CHK_INK_M) == BST_CHECKED);
                     ConfigManager::GetInstance().SetBarYellow(IsDlgButtonChecked(hwnd, IDC_CHK_INK_Y) == BST_CHECKED);
                     ConfigManager::GetInstance().SetBarBlack(IsDlgButtonChecked(hwnd, IDC_CHK_INK_K) == BST_CHECKED);
+                    return 0;
+                }
+                case IDC_CHK_SET_DOC_INFO: {
+                    ConfigManager::GetInstance().SetDocInfo(IsDlgButtonChecked(hwnd, IDC_CHK_SET_DOC_INFO) == BST_CHECKED);
+                    return 0;
+                }
+                case IDC_CHK_SET_DOC_TRANSLIT: {
+                    ConfigManager::GetInstance().SetDocInfoTranslit(IsDlgButtonChecked(hwnd, IDC_CHK_SET_DOC_TRANSLIT) == BST_CHECKED);
+                    return 0;
+                }
+                case IDC_CHK_SET_DOC_WITH_BARS: {
+                    ConfigManager::GetInstance().SetDocInfoWithBars(IsDlgButtonChecked(hwnd, IDC_CHK_SET_DOC_WITH_BARS) == BST_CHECKED);
                     return 0;
                 }
 
@@ -1942,19 +1958,20 @@ SPErr MakeCropMarksAIPlugin::CreateDockablePanel() {
     SendMessageA(hCmbRegOrd, CB_ADDSTRING, 0, (LPARAM)"Above crop marks");
     SendMessageA(hCmbRegOrd, CB_ADDSTRING, 0, (LPARAM)"Below crop marks");
 
-    makeStatic("DOCUMENT INFO", 10, 362, 220, 18, IDC_LBL_SET_DOC_HEADER, g_hBoldFont);
-    makeCheckWithLabel("Add document name, date & time stamp", 10, 380, 220, 20, IDC_CHK_SET_DOC_INFO, g_hUIFont);
-    makeCheckWithLabel("Transliterate Cyrillic to Latin", 10, 400, 220, 20, IDC_CHK_SET_DOC_TRANSLIT, g_hUIFont);
+    makeStatic("DOCUMENT INFO", 10, 360, 220, 16, IDC_LBL_SET_DOC_HEADER, g_hBoldFont);
+    makeCheckWithLabel("Add document name, date & time stamp", 10, 377, 220, 18, IDC_CHK_SET_DOC_INFO, g_hUIFont);
+    makeCheckWithLabel("Transliterate Cyrillic to Latin", 10, 395, 220, 18, IDC_CHK_SET_DOC_TRANSLIT, g_hUIFont);
+    makeCheckWithLabel("Place info alongside color bars", 10, 413, 220, 18, IDC_CHK_SET_DOC_WITH_BARS, g_hUIFont);
 
-    makeStatic("KEYBOARD SHORTCUTS & BACKUP", 10, 424, 220, 18, IDC_LBL_SET_HK_HEADER, g_hBoldFont);
-    makeStatic("Default: Ctrl+Shift+F4", 10, 442, 220, 16, IDC_STATIC_SET_HK_INFO, g_hSmallFont);
+    makeStatic("KEYBOARD SHORTCUTS & BACKUP", 10, 436, 220, 16, IDC_LBL_SET_HK_HEADER, g_hBoldFont);
+    makeStatic("Default: Ctrl+Shift+F4", 10, 453, 220, 15, IDC_STATIC_SET_HK_INFO, g_hSmallFont);
 
-    makeBtn("Hotkeys...", 10, 464, 105, 24, IDC_BTN_SET_HOTKEYS);
-    makeBtn("Save Defaults", 120, 464, 105, 24, IDC_BTN_SET_SAVE_DEFAULTS);
-    makeBtn("Export...", 10, 492, 105, 24, IDC_BTN_SET_EXPORT);
-    makeBtn("Import...", 120, 492, 105, 24, IDC_BTN_SET_IMPORT);
+    makeBtn("Hotkeys...", 10, 472, 105, 23, IDC_BTN_SET_HOTKEYS);
+    makeBtn("Save Defaults", 120, 472, 105, 23, IDC_BTN_SET_SAVE_DEFAULTS);
+    makeBtn("Export...", 10, 498, 105, 23, IDC_BTN_SET_EXPORT);
+    makeBtn("Import...", 120, 498, 105, 23, IDC_BTN_SET_IMPORT);
 
-    makeBtn("APPLY SETTINGS", 10, 520, 220, 28, IDC_BTN_SETTINGS_APPLY, true);
+    makeBtn("APPLY SETTINGS", 10, 525, 220, 28, IDC_BTN_SETTINGS_APPLY, true);
 
     // ==========================================
     // COMMON FOOTER
@@ -2140,7 +2157,7 @@ void MakeCropMarksAIPlugin::UpdateTabVisibility() {
         IDC_LBL_SET_REG_POS, IDC_CMB_SET_REG_POS,
         IDC_CHK_SET_REG_WHITE,
         IDC_LBL_SET_REG_ORDER, IDC_CMB_SET_REG_ORDER,
-        IDC_LBL_SET_DOC_HEADER, IDC_CHK_SET_DOC_INFO, IDC_CHK_SET_DOC_TRANSLIT,
+        IDC_LBL_SET_DOC_HEADER, IDC_CHK_SET_DOC_INFO, IDC_CHK_SET_DOC_TRANSLIT, IDC_CHK_SET_DOC_WITH_BARS,
         IDC_LBL_SET_HK_HEADER, IDC_STATIC_SET_HK_INFO,
         IDC_BTN_SET_HOTKEYS, IDC_BTN_SET_SAVE_DEFAULTS,
         IDC_BTN_SET_EXPORT, IDC_BTN_SET_IMPORT,
@@ -2261,6 +2278,7 @@ void MakeCropMarksAIPlugin::PopulateSettingsToUI() {
     // Doc info
     CheckDlgButton(m_hPanelDlg, IDC_CHK_SET_DOC_INFO, cfg.GetDocInfo() ? BST_CHECKED : BST_UNCHECKED);
     CheckDlgButton(m_hPanelDlg, IDC_CHK_SET_DOC_TRANSLIT, cfg.GetDocInfoTranslit() ? BST_CHECKED : BST_UNCHECKED);
+    CheckDlgButton(m_hPanelDlg, IDC_CHK_SET_DOC_WITH_BARS, cfg.GetDocInfoWithBars() ? BST_CHECKED : BST_UNCHECKED);
 }
 
 void MakeCropMarksAIPlugin::ReadSettingsFromUI() {
@@ -2310,6 +2328,7 @@ void MakeCropMarksAIPlugin::ReadSettingsFromUI() {
     // Doc info
     cfg.SetDocInfo(IsDlgButtonChecked(m_hPanelDlg, IDC_CHK_SET_DOC_INFO) == BST_CHECKED);
     cfg.SetDocInfoTranslit(IsDlgButtonChecked(m_hPanelDlg, IDC_CHK_SET_DOC_TRANSLIT) == BST_CHECKED);
+    cfg.SetDocInfoWithBars(IsDlgButtonChecked(m_hPanelDlg, IDC_CHK_SET_DOC_WITH_BARS) == BST_CHECKED);
 }
 
 void MakeCropMarksAIPlugin::PopulateUIFromParams(const CropMarkParams& p) {
@@ -2449,6 +2468,7 @@ void MakeCropMarksAIPlugin::ReadParamsFromUI(CropMarkParams& p) {
     p.barStandard = ConfigManager::GetInstance().GetBarStandard();
     p.docInfo = ConfigManager::GetInstance().GetDocInfo();
     p.docInfoTranslit = ConfigManager::GetInstance().GetDocInfoTranslit();
+    p.docInfoWithBars = ConfigManager::GetInstance().GetDocInfoWithBars();
 
     p.barMode = ConfigManager::GetInstance().GetBarMode();
     p.patchWidth = ConfigManager::GetInstance().GetPatchWidth();

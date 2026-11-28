@@ -94,5 +94,8 @@ public:
 SPErr AcquireSuites(SPBasicSuite* basic);
 void ReleaseSuites(SPBasicSuite* basic);
 void PluginLog(const char* fmt, ...);
+int32_t GetCharFeaturesSuiteVer();
+int32_t GetDocumentSuiteVer();
+int32_t GetUnicodeStringSuiteVer();
 
 #endif // SUITES_H
